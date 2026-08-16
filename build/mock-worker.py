@@ -196,15 +196,24 @@ def merge_results(lists):
 
 
 def search_providers(q):
-    futures = [POOL.submit(fn, q) for fn in (from_goodreads, from_google_books, from_open_library)]
-    lists = []
-    for f in futures:
+    """Returns (merged_results, per_provider_status). The status mirrors the
+    worker's: a dead provider looks exactly like one with no matches, which is
+    how a missing User-Agent on Goodreads went unnoticed in production."""
+    jobs = [('goodreads', from_goodreads), ('google', from_google_books), ('openlibrary', from_open_library)]
+    futures = [(name, POOL.submit(fn, q)) for name, fn in jobs]
+    lists, providers = [], {}
+    for name, f in futures:
         try:
-            lists.append(f.result(timeout=META_TIMEOUT + 2))
+            got = f.result(timeout=META_TIMEOUT + 2)
+            providers[name] = ('%d results' % len(got)) if got else 'no results'
+            lists.append(got)
         except Exception as e:
-            sys.stderr.write('[worker-mock] provider failed: %s\n' % e)
+            providers[name] = 'failed: %s' % e
+            sys.stderr.write('[worker-mock] provider %s failed: %s\n' % (name, e))
             lists.append([])
-    return merge_results(lists)
+    if not GOOGLE_BOOKS_KEY:
+        providers['google'] = 'skipped (no GOOGLE_BOOKS_KEY secret)'
+    return merge_results(lists), providers
 
 
 def cached(key, ttl, produce):
@@ -278,9 +287,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 limit = max(1, min(20, int(get('limit') or 8)))
             except ValueError:
                 limit = 8
-            results = cached('search:' + norm_text(q), 7 * 24 * 3600, lambda: search_providers(q))
-            sys.stderr.write('[worker-mock] /meta/search %r -> %d results\n' % (q, len(results)))
-            return self._json({'results': results[:limit]})
+            results, providers = cached('search:' + norm_text(q), 7 * 24 * 3600, lambda: search_providers(q))
+            sys.stderr.write('[worker-mock] /meta/search %r -> %d results %s\n' % (q, len(results), providers))
+            return self._json({'results': results[:limit], 'providers': providers})
 
         if parsed.path == '/meta/cover':
             isbn, title, author = get('isbn'), get('title'), get('author')
@@ -290,7 +299,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._json({'error': 'nothing to look up'}, 400)
 
             def resolve():
-                results = search_providers(q)
+                results, _ = search_providers(q)
                 # An isbn already identifies the edition; a title search does
                 # not, and has to be checked against what came back.
                 ok = results if isbn else [r for r in results if title_matches(title, r['title'])]

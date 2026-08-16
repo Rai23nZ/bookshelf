@@ -104,10 +104,26 @@ const META_TIMEOUT_MS = 5000;
 const META_TTL = 7 * 24 * 60 * 60;   // searches: providers do change their minds
 const COVER_TTL = 30 * 24 * 60 * 60; // cover URLs are effectively immutable
 
+// Bump this whenever a provider, its parsing or its request changes. Cached
+// entries are keyed through it, so a fix reaches users immediately instead of
+// being masked by up to a month of stale answers produced by the old code.
+// v2: added the User-Agent below, without which Goodreads returned nothing and
+// every cached search held Open Library results only.
+const META_CACHE_VERSION = 'v2';
+
+// Cloudflare's fetch() sends NO User-Agent unless one is set, and Goodreads
+// sits behind CloudFront, which answers a UA-less request with a 403 error
+// page. Locally this never showed up because the python mock sends a UA.
+const META_UA = 'Mozilla/5.0 (compatible; bookshelf/1.0; +https://github.com/Rai23nZ/bookshelf)';
+
 function metaFetch(url, init) {
   // One slow provider must not hold the whole response hostage; a provider
   // that times out just contributes nothing.
-  return fetch(url, { ...init, signal: AbortSignal.timeout(META_TIMEOUT_MS) });
+  return fetch(url, {
+    ...init,
+    headers: { 'user-agent': META_UA, ...((init && init.headers) || {}) },
+    signal: AbortSignal.timeout(META_TIMEOUT_MS)
+  });
 }
 
 // Goodreads hands out a thumbnail (._SY75_ / ._SX50_, ~2KB). The same path
@@ -127,8 +143,12 @@ function upgradeGoodreadsCover(url) {
 
 async function fromGoodreads(q) {
   const url = 'https://www.goodreads.com/book/auto_complete?format=json&q=' + encodeURIComponent(q);
+  // Throw rather than return [] on a bad status: a provider that quietly
+  // contributes nothing is indistinguishable from one that legitimately found
+  // nothing, which is exactly how the missing User-Agent above went unnoticed.
+  // searchProviders() catches this and reports it in the response.
   const res = await metaFetch(url, { headers: { accept: 'application/json' } });
-  if (!res.ok) return [];
+  if (!res.ok) throw new Error('goodreads http ' + res.status);
   const list = await res.json();
   if (!Array.isArray(list)) return [];
   return list.map(d => ({
@@ -149,7 +169,7 @@ async function fromGoogleBooks(q, key) {
   const url = 'https://www.googleapis.com/books/v1/volumes?maxResults=10&country=US&key='
     + encodeURIComponent(key) + '&q=' + encodeURIComponent(q);
   const res = await metaFetch(url);
-  if (!res.ok) return [];
+  if (!res.ok) throw new Error('google books http ' + res.status);
   const data = await res.json();
   return ((data && data.items) || []).map(item => {
     const v = item.volumeInfo || {};
@@ -172,7 +192,7 @@ async function fromOpenLibrary(q) {
   const url = 'https://openlibrary.org/search.json?limit=10&fields=title,author_name,isbn,cover_i,number_of_pages_median&q='
     + encodeURIComponent(q);
   const res = await metaFetch(url);
-  if (!res.ok) return [];
+  if (!res.ok) throw new Error('open library http ' + res.status);
   const data = await res.json();
   return ((data && data.docs) || []).map(d => ({
     title: String(d.title || '').trim(),
@@ -252,13 +272,29 @@ function mergeResults(lists) {
   return [...byKey.values()];
 }
 
+// Returns the merged hits AND a per-provider status line, which is echoed on
+// /meta/search. Diagnosing "why is everything tagged Open Library?" otherwise
+// means guessing from the outside, since a dead provider looks exactly like a
+// provider with no matches.
 async function searchProviders(q, env) {
-  const settled = await Promise.allSettled([
-    fromGoodreads(q),
-    fromGoogleBooks(q, env.GOOGLE_BOOKS_KEY),
-    fromOpenLibrary(q)
-  ]);
-  return mergeResults(settled.map(r => (r.status === 'fulfilled' ? r.value : [])));
+  const jobs = [
+    ['goodreads', () => fromGoodreads(q)],
+    ['google', () => fromGoogleBooks(q, env.GOOGLE_BOOKS_KEY)],
+    ['openlibrary', () => fromOpenLibrary(q)]
+  ];
+  const settled = await Promise.allSettled(jobs.map(([, run]) => run()));
+  const providers = {};
+  const lists = settled.map((r, i) => {
+    const name = jobs[i][0];
+    if (r.status === 'fulfilled') {
+      providers[name] = r.value.length ? r.value.length + ' results' : 'no results';
+      return r.value;
+    }
+    providers[name] = 'failed: ' + ((r.reason && r.reason.message) || String(r.reason));
+    return [];
+  });
+  if (!env.GOOGLE_BOOKS_KEY) providers.google = 'skipped (no GOOGLE_BOOKS_KEY secret)';
+  return { results: mergeResults(lists), providers };
 }
 
 // Cache is best-effort on purpose: without a KV binding /meta still answers,
@@ -289,9 +325,11 @@ async function handleMeta(request, env, origin, path) {
     const q = (params.get('q') || '').trim();
     if (!q) return json({ results: [] }, 200, origin);
     const limit = Math.min(20, Math.max(1, +(params.get('limit') || 8) || 8));
-    const key = 'meta:search:' + await sha256hex(normText(q));
-    const results = await cached(env, key, META_TTL, () => searchProviders(q, env));
-    return json({ results: results.slice(0, limit) }, 200, origin);
+    const key = 'meta:' + META_CACHE_VERSION + ':search:' + await sha256hex(normText(q));
+    const data = await cached(env, key, META_TTL, () => searchProviders(q, env));
+    // `providers` describes the moment this entry was produced, not this
+    // request — a cache hit replays it. Query something new to see live status.
+    return json({ results: (data.results || []).slice(0, limit), providers: data.providers }, 200, origin);
   }
 
   if (path === '/meta/cover') {
@@ -302,11 +340,11 @@ async function handleMeta(request, env, origin, path) {
     // subtitle the way the client used to before asking.
     const q = isbn || (title.replace(/[:(].*$/, '').trim() + (author ? ' ' + author.split(',')[0] : '')).trim();
     if (!q) return json({ error: 'nothing to look up' }, 400, origin);
-    const key = 'meta:cover:' + await sha256hex(normText(q));
+    const key = 'meta:' + META_CACHE_VERSION + ':cover:' + await sha256hex(normText(q));
     // A miss is cached too: a book no provider has must not re-run three
     // lookups on every single session.
     const found = await cached(env, key, COVER_TTL, async () => {
-      const results = await searchProviders(q, env);
+      const { results } = await searchProviders(q, env);
       // An isbn already identifies the edition, so anything it returns is the
       // right book. A title search does not, and has to be checked.
       const ok = isbn ? results : results.filter(r => titleMatches(title, r.title));
