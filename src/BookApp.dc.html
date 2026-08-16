@@ -1,0 +1,1664 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caprasimo&family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="_ds/organic-d3b0336a-b9a3-43b2-a73c-66ee242bc1fa/styles.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<script src="_ds/organic-d3b0336a-b9a3-43b2-a73c-66ee242bc1fa/_ds_bundle.js"></script>
+<script src="books-data.js"></script>
+<script src="android-frame-global.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1c1a17">
+<style>
+/* Dark is the only theme: the tokens below are unconditional, so the app
+   looks identical regardless of the OS light/dark setting. */
+html{color-scheme:dark}
+/* The app container is exactly one viewport tall, but the visual viewport
+   grows when mobile browser chrome retracts — without a matching background
+   on the root elements that extra strip painted through as white. */
+html,body{margin:0;min-height:100%;background:#1c1a17}
+a{color:var(--color-accent-700);text-decoration:none}
+a:hover{color:var(--color-accent)}
+input[type=range]{accent-color:var(--color-accent)}
+.hidescroll::-webkit-scrollbar{display:none}
+.hidescroll{scrollbar-width:none}
+@keyframes bt-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+:root {
+  --color-bg: #1c1a17 !important;
+  --color-surface: #262320 !important;
+  --color-text: #f3ede1 !important;
+  --color-accent: #dd7f42 !important;
+  --color-accent-2: #93a875 !important;
+  --color-divider: color-mix(in srgb, #f3ede1 16%, transparent) !important;
+  --color-neutral-100: #2e2b25 !important;
+  --color-neutral-200: #474238 !important;
+  --color-neutral-300: #645c50 !important;
+  --color-neutral-400: #82796a !important;
+  --color-neutral-500: #a19786 !important;
+  --color-neutral-600: #c0b6a5 !important;
+  --color-neutral-700: #dcd3c4 !important;
+  --color-neutral-800: #eee7db !important;
+  --color-neutral-900: #f9f4ed !important;
+  --color-accent-100: #402310 !important;
+  --color-accent-200: #643312 !important;
+  --color-accent-300: #8c491a !important;
+  --color-accent-400: #b2622d !important;
+  --color-accent-500: #dd8a55 !important;
+  --color-accent-600: #f6a06b !important;
+  --color-accent-700: #ffc6a5 !important;
+  --color-accent-800: #ffe1d0 !important;
+  --color-accent-900: #fff2eb !important;
+  --color-accent-2-100: #272e1b !important;
+  --color-accent-2-200: #3d472b !important;
+  --color-accent-2-300: #56633f !important;
+  --color-accent-2-400: #728157 !important;
+  --color-accent-2-500: #93a875 !important;
+  --color-accent-2-600: #aebf92 !important;
+  --color-accent-2-700: #ccdbb2 !important;
+  --color-accent-2-800: #e1eecc !important;
+  --color-accent-2-900: #f0fae1 !important;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.45) !important;
+  --shadow-md: 0 3px 12px rgba(0,0,0,.5) !important;
+  --shadow-lg: 0 14px 36px rgba(0,0,0,.55) !important;
+}
+</style>
+</helmet>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#f5ead8"/><rect x="30" y="24" width="12" height="52" rx="2" fill="#c67139"/><rect x="44" y="30" width="12" height="46" rx="2" fill="#7a8a5e"/><rect x="58" y="20" width="12" height="56" rx="2" fill="#201e1d"/></svg></template>
+<x-import component-from-global-scope="AndroidDevice" width="{{ devW }}" height="{{ devH }}" bare="{{ bare }}" hint-size="412px,892px">
+<div style="min-height:100%;display:flex;flex-direction:column;background:var(--color-bg);font-family:var(--font-body);color:var(--color-text);font-size:15px">
+
+<div style="flex:1;animation:bt-in .22s ease both">
+
+<sc-if value="{{ isLibrary }}" hint-placeholder-val="{{ true }}">
+<div style="padding:20px 18px 0">
+<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px">
+<div style="flex:1">
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-700);margin-bottom:4px">{{ todayLabel }}</div>
+<h1 style="font-family:var(--font-heading);font-size:30px;line-height:1.05;margin:0">Your shelf</h1>
+</div>
+<button onClick="{{ openStats }}" title="Stats" style="width:44px;height:44px;border-radius:999px;border:0;background:var(--color-accent-2-200);display:grid;place-items:center;font-family:var(--font-heading);font-size:16px;color:var(--color-accent-2-800);cursor:pointer;padding:0;flex:none">AV</button>
+</div>
+
+<div style="display:flex;align-items:center;gap:10px;height:46px;padding:0 16px;border-radius:999px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-300);margin-bottom:14px">
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" style="color:var(--color-neutral-500);flex:none"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.2-3.2"></path></svg>
+<input value="{{ query }}" onInput="{{ onQuery }}" placeholder="{{ searchPlaceholder }}" style="flex:1;border:0;outline:0;background:transparent;font-family:var(--font-body);font-size:14px;color:var(--color-text);min-width:0">
+</div>
+
+<sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;gap:8px;margin-bottom:14px">
+<sc-for list="{{ searchScopes }}" as="sc" hint-placeholder-count="2">
+<button onClick="{{ sc.go }}" style="height:32px;padding:0 13px;border-radius:999px;border:1px solid {{ sc.bd }};background:{{ sc.bg }};color:{{ sc.fg }};font-family:var(--font-body);font-weight:600;font-size:11.5px;cursor:pointer">{{ sc.label }}</button>
+</sc-for>
+</div>
+</sc-if>
+
+<div class="hidescroll" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:14px">
+<sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+<button onClick="{{ t.go }}" style="flex:1 1 auto;min-width:0;height:34px;padding:0 10px;border-radius:999px;border:1px solid {{ t.bd }};background:{{ t.bg }};color:{{ t.fg }};font-family:var(--font-body);font-weight:600;font-size:12px;line-height:1;white-space:nowrap;cursor:pointer">{{ t.label }}</button>
+</sc-for>
+</div>
+</div>
+
+<sc-if value="{{ showNowCard }}" hint-placeholder-val="{{ true }}">
+<div onClick="{{ openNow }}" style="margin:0 18px 18px;padding:14px;border-radius:24px;background:var(--color-accent-2-800);color:var(--color-neutral-100);display:flex;gap:14px;align-items:center;cursor:pointer;box-shadow:var(--shadow-md)">
+<div style="width:52px;height:78px;border-radius:8px;overflow:hidden;position:relative;flex:none;background:{{ now.ph }}">
+<sc-if value="{{ now.hasCover }}" hint-placeholder-val="{{ false }}"><img src="{{ now.coverUrl }}" data-bid="{{ now.id }}" onError="{{ hideImg }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></sc-if>
+</div>
+<div style="flex:1;min-width:0">
+<div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;opacity:.7;margin-bottom:3px">Reading now</div>
+<div style="font-family:var(--font-heading);font-size:16px;line-height:1.15;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ now.title }}</div>
+<div style="height:6px;border-radius:999px;background:rgba(255,255,255,.22);overflow:hidden"><div style="height:100%;width:{{ now.pct }};background:var(--color-accent-300);border-radius:999px"></div></div>
+<div style="font-size:11px;opacity:.75;margin-top:6px">{{ now.progressLabel }}</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ false }}">
+<div style="padding:0 18px;display:grid;grid-template-columns:1fr 1fr;gap:18px 14px">
+<sc-for list="{{ flat }}" as="b" hint-placeholder-count="6">
+<div onClick="{{ b.open }}" style="cursor:pointer">
+<div style="position:relative;aspect-ratio:2/3;border-radius:14px;overflow:hidden;background:{{ b.ph }};box-shadow:var(--shadow-md);margin-bottom:9px">
+<div style="position:absolute;inset:0;padding:12px;display:flex;flex-direction:column;justify-content:space-between">
+<div style="font-family:var(--font-heading);font-size:14px;line-height:1.16;color:rgba(255,255,255,.95)">{{ b.short }}</div>
+<div style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.72)">{{ b.authorShort }}</div>
+</div>
+<sc-if value="{{ b.hasCover }}" hint-placeholder-val="{{ false }}"><img src="{{ b.coverUrl }}" data-bid="{{ b.id }}" onError="{{ hideImg }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></sc-if>
+</div>
+<div style="font-family:var(--font-heading);font-size:13.5px;line-height:1.2;margin-bottom:3px">{{ b.short }}</div>
+<div style="font-size:11.5px;color:var(--color-neutral-600);margin-bottom:6px">{{ b.authorShort }}</div>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{ flatEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:30px 18px;text-align:center;color:var(--color-neutral-600);font-size:13px">No matches.</div></sc-if>
+</sc-if>
+
+<sc-if value="{{ vShelf }}" hint-placeholder-val="{{ true }}">
+<div style="padding:0 18px">
+<sc-for list="{{ shelfRows }}" as="row" hint-placeholder-count="4">
+<div style="margin-bottom:22px">
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;align-items:end">
+<sc-for list="{{ row.books }}" as="b" hint-placeholder-count="3">
+<div onClick="{{ b.open }}" style="cursor:pointer;position:relative;aspect-ratio:2/3;border-radius:9px;overflow:hidden;background:{{ b.ph }};box-shadow:var(--shadow-sm)">
+<div style="position:absolute;inset:0;padding:9px;display:flex;flex-direction:column;justify-content:space-between">
+<div style="font-family:var(--font-heading);font-size:11px;line-height:1.18;color:rgba(255,255,255,.95)">{{ b.short }}</div>
+<div style="font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.72);padding-right:54px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ b.authorShort }}</div>
+</div>
+<sc-if value="{{ b.hasCover }}" hint-placeholder-val="{{ false }}"><img src="{{ b.coverUrl }}" data-bid="{{ b.id }}" onError="{{ hideImg }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></sc-if>
+<sc-if value="{{ b.rated }}" hint-placeholder-val="{{ true }}"><div style="position:absolute;right:5px;bottom:5px;height:19px;padding:0 7px;border-radius:999px;background:rgba(32,30,29,.78);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;gap:3px">{{ b.rating }} ★</div></sc-if>
+</div>
+</sc-for>
+</div>
+<div style="height:7px;border-radius:0 0 6px 6px;background:var(--color-neutral-300);box-shadow:0 3px 7px rgba(32,30,29,.13);margin-top:5px"></div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ vEditorial }}" hint-placeholder-val="{{ false }}">
+<div style="padding:0 18px;display:grid;grid-template-columns:1fr 1fr;gap:18px 14px">
+<sc-for list="{{ flat }}" as="b" hint-placeholder-count="6">
+<div onClick="{{ b.open }}" style="cursor:pointer">
+<div style="position:relative;aspect-ratio:2/3;border-radius:14px;overflow:hidden;background:{{ b.ph }};box-shadow:var(--shadow-md);margin-bottom:9px">
+<div style="position:absolute;inset:0;padding:12px;display:flex;flex-direction:column;justify-content:space-between">
+<div style="font-family:var(--font-heading);font-size:14px;line-height:1.16;color:rgba(255,255,255,.95)">{{ b.short }}</div>
+<div style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.72)">{{ b.authorShort }}</div>
+</div>
+<sc-if value="{{ b.hasCover }}" hint-placeholder-val="{{ false }}"><img src="{{ b.coverUrl }}" data-bid="{{ b.id }}" onError="{{ hideImg }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></sc-if>
+</div>
+<div style="font-family:var(--font-heading);font-size:13.5px;line-height:1.2;margin-bottom:3px">{{ b.short }}</div>
+<div style="font-size:11.5px;color:var(--color-neutral-600);margin-bottom:6px">{{ b.authorShort }}</div>
+<div style="display:flex;align-items:center;gap:6px">
+<div style="font-size:11px;font-weight:700;color:var(--color-accent-700)">{{ b.ratingLong }}</div>
+<div style="flex:1;height:4px;border-radius:999px;background:var(--color-neutral-300);overflow:hidden"><div style="height:100%;width:{{ b.ratingPct }};background:var(--color-accent)"></div></div>
+</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ vRails }}" hint-placeholder-val="{{ false }}">
+<div>
+<sc-for list="{{ rails }}" as="g" hint-placeholder-count="3">
+<div style="margin-bottom:24px">
+<div onClick="{{ g.open }}" style="display:flex;align-items:baseline;gap:8px;padding:0 18px 10px;cursor:pointer">
+<div style="font-family:var(--font-heading);font-size:17px">{{ g.title }}</div>
+<div style="font-size:11px;color:var(--color-neutral-600)">{{ g.count }}</div>
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-neutral-500);margin-left:-2px"><path d="M9 5l7 7-7 7"></path></svg>
+</div>
+<div class="hidescroll" style="display:flex;gap:12px;overflow-x:auto;padding:0 18px 4px">
+<sc-for list="{{ g.books }}" as="b" hint-placeholder-count="5">
+<div onClick="{{ b.open }}" style="flex:none;width:96px;cursor:pointer">
+<div style="position:relative;width:96px;height:144px;border-radius:9px;overflow:hidden;background:{{ b.ph }};box-shadow:var(--shadow-sm);margin-bottom:7px">
+<div style="position:absolute;inset:0;padding:9px;display:flex;flex-direction:column;justify-content:space-between">
+<div style="font-family:var(--font-heading);font-size:11px;line-height:1.18;color:rgba(255,255,255,.95)">{{ b.short }}</div>
+<div style="font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.72)">{{ b.authorShort }}</div>
+</div>
+<sc-if value="{{ b.hasCover }}" hint-placeholder-val="{{ false }}"><img src="{{ b.coverUrl }}" data-bid="{{ b.id }}" onError="{{ hideImg }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></sc-if>
+</div>
+<div style="font-size:11px;line-height:1.25;color:var(--color-neutral-700);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">{{ b.short }}</div>
+</div>
+</sc-for>
+<sc-if value="{{ g.hasMore }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ g.open }}" style="flex:none;width:96px;height:144px;border-radius:9px;border:1px dashed var(--color-neutral-300);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;color:var(--color-neutral-600);text-align:center">
+<div style="font-family:var(--font-heading);font-size:17px;color:var(--color-text)">+{{ g.moreCount }}</div>
+<div style="font-size:10px">See all</div>
+</div>
+</sc-if>
+</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<div style="padding:4px 18px 0;display:flex;justify-content:center">
+<sc-if value="{{ canLoadMore }}" hint-placeholder-val="{{ true }}">
+<button onClick="{{ loadMore }}" class="btn btn-ghost" style="height:40px;padding:0 20px;border-radius:999px;border:1px solid var(--color-neutral-300);background:transparent;cursor:pointer;font-family:var(--font-heading);font-size:13px;color:var(--color-text)">{{ moreLabel }}</button>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ isBook }}" hint-placeholder-val="{{ false }}">
+<div>
+<div style="position:relative;padding:16px 18px 22px;background:var(--color-accent-2-100)">
+<button onClick="{{ back }}" style="width:40px;height:40px;border-radius:999px;border:0;background:var(--color-neutral-100);cursor:pointer;display:grid;place-items:center;margin-bottom:14px">
+<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
+</button>
+<div style="display:flex;gap:16px">
+<div style="width:112px;height:168px;flex:none;border-radius:12px;overflow:hidden;position:relative;background:{{ sel.ph }};box-shadow:var(--shadow-lg)">
+<div style="position:absolute;inset:0;padding:12px;display:flex;flex-direction:column;justify-content:space-between">
+<div style="font-family:var(--font-heading);font-size:13px;line-height:1.16;color:rgba(255,255,255,.95)">{{ sel.short }}</div>
+<div style="font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.72)">{{ sel.authorShort }}</div>
+</div>
+<sc-if value="{{ sel.hasCover }}" hint-placeholder-val="{{ false }}"><img src="{{ sel.coverUrl }}" data-bid="{{ sel.id }}" onError="{{ hideImg }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></sc-if>
+</div>
+<div style="flex:1;min-width:0;padding-top:4px">
+<h2 style="font-family:var(--font-heading);font-size:20px;line-height:1.12;margin:0 0 6px">{{ sel.title }}</h2>
+<div style="font-size:13px;color:var(--color-neutral-700);margin-bottom:10px">{{ sel.author }}</div>
+<sc-if value="{{ sel.hasSeries }}" hint-placeholder-val="{{ true }}"><span class="tag tag-accent-2" style="display:inline-block;font-size:11px">{{ sel.series }}</span></sc-if>
+</div>
+</div>
+</div>
+
+<div style="padding:18px">
+<div style="border-radius:24px;background:var(--color-neutral-100);padding:16px;margin-bottom:14px;border:1px solid var(--color-neutral-200)">
+<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">My rating</div>
+<div style="font-family:var(--font-heading);font-size:26px;color:var(--color-accent-700)">{{ sel.ratingLong }}</div>
+</div>
+<input type="range" min="0" max="5" step="0.1" value="{{ sel.ratingNum }}" onInput="{{ onRating }}" style="width:100%;height:26px">
+<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--color-neutral-600)">
+<span>0</span><span>Exports to Goodreads as {{ sel.ratingRounded }} ★</span><span>5</span>
+</div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+<div style="border-radius:20px;background:var(--color-neutral-100);padding:13px 14px;border:1px solid var(--color-neutral-200)">
+<div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:4px">Date read</div>
+<div style="font-family:var(--font-heading);font-size:15px">{{ sel.dateReadLabel }}</div>
+</div>
+<div style="border-radius:20px;background:var(--color-neutral-100);padding:13px 14px;border:1px solid var(--color-neutral-200)">
+<div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:4px">Date added</div>
+<div style="font-family:var(--font-heading);font-size:15px">{{ sel.dateAddedLabel }}</div>
+</div>
+<div style="border-radius:20px;background:var(--color-neutral-100);padding:13px 14px;border:1px solid var(--color-neutral-200)">
+<div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:4px">Pages</div>
+<div style="font-family:var(--font-heading);font-size:15px">{{ sel.pagesLabel }}</div>
+</div>
+<div style="border-radius:20px;background:var(--color-neutral-100);padding:13px 14px;border:1px solid var(--color-neutral-200)">
+<div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:4px">Times read</div>
+<div style="font-family:var(--font-heading);font-size:15px">{{ sel.readCount }}</div>
+</div>
+</div>
+
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:8px">Shelf</div>
+<div style="display:flex;gap:8px;margin-bottom:16px">
+<sc-for list="{{ shelfPicker }}" as="s" hint-placeholder-count="3">
+<button onClick="{{ s.pick }}" style="flex:1;height:38px;border-radius:999px;border:1px solid {{ s.bd }};background:{{ s.bg }};color:{{ s.fg }};font-family:var(--font-body);font-weight:600;font-size:11.5px;cursor:pointer">{{ s.label }}</button>
+</sc-for>
+</div>
+
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:8px">Note</div>
+<textarea value="{{ sel.note }}" onInput="{{ onNote }}" placeholder="What stayed with you?" style="width:100%;box-sizing:border-box;min-height:88px;border-radius:20px;border:1px solid var(--color-neutral-300);background:var(--color-neutral-100);padding:13px 15px;font-family:var(--font-body);font-size:13.5px;color:var(--color-text);resize:none;outline:0"></textarea>
+<div style="font-size:11px;color:var(--color-neutral-600);margin-top:6px">Exports to Goodreads as “My Review”.</div>
+<button onClick="{{ deleteBook }}" style="width:100%;margin-top:16px;height:44px;border-radius:999px;border:1px solid var(--color-neutral-300);background:transparent;color:#b0413f;font-family:var(--font-body);font-weight:700;font-size:13px;cursor:pointer">Remove from library</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isReading }}" hint-placeholder-val="{{ false }}">
+<div style="padding:20px 18px 0">
+<h1 style="font-family:var(--font-heading);font-size:28px;margin:0 0 4px">Reading now</h1>
+<div style="font-size:13px;color:var(--color-neutral-600);margin-bottom:18px">{{ readingSubtitle }}</div>
+<sc-for list="{{ reading }}" as="b" hint-placeholder-count="3">
+<div style="border-radius:24px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);padding:14px;margin-bottom:12px">
+<div style="display:flex;gap:13px;margin-bottom:12px">
+<div onClick="{{ b.open }}" style="width:56px;height:84px;flex:none;border-radius:9px;overflow:hidden;position:relative;background:{{ b.ph }};cursor:pointer">
+<div style="position:absolute;inset:0;padding:8px;font-family:var(--font-heading);font-size:10px;line-height:1.15;color:rgba(255,255,255,.95)">{{ b.short }}</div>
+<sc-if value="{{ b.hasCover }}" hint-placeholder-val="{{ false }}"><img src="{{ b.coverUrl }}" data-bid="{{ b.id }}" onError="{{ hideImg }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></sc-if>
+</div>
+<div style="flex:1;min-width:0">
+<div style="font-family:var(--font-heading);font-size:15px;line-height:1.18;margin-bottom:3px">{{ b.short }}</div>
+<div style="font-size:12px;color:var(--color-neutral-600);margin-bottom:8px">{{ b.authorShort }}</div>
+<div style="display:flex;align-items:baseline;gap:6px">
+<span style="font-family:var(--font-heading);font-size:19px;color:var(--color-accent-700)">{{ b.pct }}</span>
+<span style="font-size:11.5px;color:var(--color-neutral-600)">{{ b.progressLabel }}</span>
+</div>
+</div>
+</div>
+<input type="range" min="0" max="100" step="1" value="{{ b.pctNum }}" onInput="{{ b.onProgress }}" style="width:100%;height:24px">
+<div style="display:flex;gap:8px;margin-top:8px">
+<button onClick="{{ b.finish }}" style="flex:1;height:38px;border-radius:999px;border:0;background:var(--color-accent);color:#fff;font-family:var(--font-heading);font-size:13px;cursor:pointer">Finish today</button>
+<button onClick="{{ b.open }}" style="height:38px;padding:0 16px;border-radius:999px;border:1px solid var(--color-neutral-300);background:transparent;font-family:var(--font-heading);font-size:13px;cursor:pointer;color:var(--color-text)">Details</button>
+</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ isLists }}" hint-placeholder-val="{{ false }}">
+<div style="padding:20px 18px 0">
+<h1 style="font-family:var(--font-heading);font-size:28px;margin:0 0 4px">Lists</h1>
+<div style="font-size:13px;color:var(--color-neutral-600);margin-bottom:18px">Plans for later, pulled from your want-to-read shelf.</div>
+<sc-for list="{{ lists }}" as="l" hint-placeholder-count="4">
+<div onClick="{{ l.open }}" style="display:flex;align-items:center;gap:14px;border-radius:24px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);padding:13px 15px;margin-bottom:11px;cursor:pointer">
+<div style="width:46px;height:46px;border-radius:999px;flex:none;background:{{ l.ph }};display:grid;place-items:center;font-family:var(--font-heading);font-size:15px;color:#fff">{{ l.count }}</div>
+<div style="flex:1;min-width:0">
+<div style="font-family:var(--font-heading);font-size:16px;line-height:1.15">{{ l.title }}</div>
+<div style="font-size:12px;color:var(--color-neutral-600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ l.sample }}</div>
+</div>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-neutral-500);flex:none"><path d="M9 5l7 7-7 7"></path></svg>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ isList }}" hint-placeholder-val="{{ false }}">
+<div style="padding:16px 18px 0">
+<button onClick="{{ backToLists }}" style="width:40px;height:40px;border-radius:999px;border:0;background:var(--color-neutral-100);cursor:pointer;display:grid;place-items:center;margin-bottom:14px">
+<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
+</button>
+<h1 style="font-family:var(--font-heading);font-size:26px;line-height:1.1;margin:0 0 4px">{{ listTitle }}</h1>
+<div style="font-size:13px;color:var(--color-neutral-600);margin-bottom:18px">{{ listSubtitle }}</div>
+<sc-for list="{{ listBooks }}" as="b" hint-placeholder-count="4">
+<div onClick="{{ b.open }}" style="display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid var(--color-neutral-200);cursor:pointer">
+<div style="width:48px;height:72px;flex:none;border-radius:8px;overflow:hidden;position:relative;background:{{ b.ph }}">
+<div style="position:absolute;inset:0;padding:7px;font-family:var(--font-heading);font-size:9.5px;line-height:1.15;color:rgba(255,255,255,.95)">{{ b.short }}</div>
+<sc-if value="{{ b.hasCover }}" hint-placeholder-val="{{ false }}"><img src="{{ b.coverUrl }}" data-bid="{{ b.id }}" onError="{{ hideImg }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></sc-if>
+</div>
+<div style="flex:1;min-width:0">
+<div style="font-size:14px;font-weight:600;line-height:1.25;margin-bottom:3px">{{ b.short }}</div>
+<div style="font-size:12px;color:var(--color-neutral-600)">{{ b.authorShort }}</div>
+</div>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-neutral-500);flex:none"><path d="M9 5l7 7-7 7"></path></svg>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ isRail }}" hint-placeholder-val="{{ false }}">
+<div style="padding:16px 18px 0">
+<button onClick="{{ back }}" style="width:40px;height:40px;border-radius:999px;border:0;background:var(--color-neutral-100);cursor:pointer;display:grid;place-items:center;margin-bottom:14px">
+<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
+</button>
+<h1 style="font-family:var(--font-heading);font-size:26px;line-height:1.1;margin:0 0 4px">{{ railTitle }}</h1>
+<div style="font-size:13px;color:var(--color-neutral-600);margin-bottom:18px">{{ railSubtitle }}</div>
+<sc-for list="{{ railBooks }}" as="b" hint-placeholder-count="6">
+<div onClick="{{ b.open }}" style="display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid var(--color-neutral-200);cursor:pointer">
+<div style="width:48px;height:72px;flex:none;border-radius:8px;overflow:hidden;position:relative;background:{{ b.ph }}">
+<div style="position:absolute;inset:0;padding:7px;font-family:var(--font-heading);font-size:9.5px;line-height:1.15;color:rgba(255,255,255,.95)">{{ b.short }}</div>
+<sc-if value="{{ b.hasCover }}" hint-placeholder-val="{{ false }}"><img src="{{ b.coverUrl }}" data-bid="{{ b.id }}" onError="{{ hideImg }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></sc-if>
+</div>
+<div style="flex:1;min-width:0">
+<div style="font-size:14px;font-weight:600;line-height:1.25;margin-bottom:3px">{{ b.short }}</div>
+<div style="font-size:12px;color:var(--color-neutral-600)">{{ b.authorShort }}</div>
+</div>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-neutral-500);flex:none"><path d="M9 5l7 7-7 7"></path></svg>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ isStats }}" hint-placeholder-val="{{ false }}">
+<div style="padding:20px 18px 0">
+<h1 style="font-family:var(--font-heading);font-size:28px;margin:0 0 18px">2026 so far</h1>
+<div style="border-radius:28px;background:var(--color-accent-2-800);color:var(--color-neutral-100);padding:20px;display:flex;gap:18px;align-items:center;margin-bottom:14px;box-shadow:var(--shadow-md)">
+<div style="width:104px;height:104px;flex:none;border-radius:999px;background:conic-gradient(var(--color-accent-300) {{ goalDeg }}, rgba(255,255,255,.16) 0);display:grid;place-items:center">
+<div style="width:78px;height:78px;border-radius:999px;background:var(--color-accent-2-800);display:grid;place-items:center;text-align:center">
+<div>
+<div style="font-family:var(--font-heading);font-size:24px;line-height:1">{{ yearCount }}</div>
+<div style="font-size:9.5px;opacity:.7;letter-spacing:.1em">OF {{ goal }}</div>
+</div>
+</div>
+</div>
+<div style="flex:1;min-width:0">
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.7;margin-bottom:6px">Yearly goal</div>
+<div style="font-family:var(--font-heading);font-size:18px;line-height:1.15;margin-bottom:8px">{{ goalHeadline }}</div>
+<div style="display:flex;gap:8px">
+<button onClick="{{ goalDown }}" style="width:34px;height:34px;border-radius:999px;border:1px solid rgba(255,255,255,.3);background:transparent;color:inherit;font-size:17px;cursor:pointer">−</button>
+<button onClick="{{ goalUp }}" style="width:34px;height:34px;border-radius:999px;border:1px solid rgba(255,255,255,.3);background:transparent;color:inherit;font-size:17px;cursor:pointer">+</button>
+</div>
+</div>
+</div>
+
+<div style="border-radius:24px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);padding:16px;margin-bottom:14px;display:flex;gap:16px;align-items:center">
+<div style="width:64px;height:64px;flex:none;border-radius:999px;background:var(--color-accent-100);border:1px solid var(--color-accent-200);display:grid;place-items:center">
+<div style="font-family:var(--font-heading);font-size:24px;line-height:1;color:var(--color-accent-800)">{{ streak }}</div>
+</div>
+<div style="flex:1;min-width:0">
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:4px">Reading streak</div>
+<div style="font-family:var(--font-heading);font-size:17px;line-height:1.15;margin-bottom:5px">{{ streakLabel }}</div>
+<div style="font-size:11.5px;line-height:1.5;color:var(--color-neutral-600)">{{ streakBlurb }}</div>
+</div>
+</div>
+
+<div style="border-radius:24px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);padding:16px;margin-bottom:14px">
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:14px">Pace this year</div>
+<div style="display:flex;align-items:flex-end;gap:5px;height:110px">
+<sc-for list="{{ months }}" as="m" hint-placeholder-count="12">
+<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px;height:100%">
+<div style="font-size:9.5px;color:var(--color-neutral-600)">{{ m.count }}</div>
+<div style="width:100%;height:{{ m.h }};border-radius:6px 6px 3px 3px;background:{{ m.bg }}"></div>
+<div style="font-size:9px;color:var(--color-neutral-500)">{{ m.label }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="border-radius:24px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);padding:16px">
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:12px">Books per year</div>
+<sc-for list="{{ years }}" as="y" hint-placeholder-count="6">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px">
+<div style="width:34px;font-size:11.5px;color:var(--color-neutral-600);flex:none">{{ y.year }}</div>
+<div style="flex:1;height:12px;border-radius:999px;background:var(--color-neutral-200);overflow:hidden"><div style="height:100%;width:{{ y.w }};border-radius:999px;background:{{ y.bg }}"></div></div>
+<div style="width:26px;text-align:right;font-size:11.5px;font-weight:700;flex:none">{{ y.count }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isExport }}" hint-placeholder-val="{{ false }}">
+<div style="padding:20px 18px 0">
+<h1 style="font-family:var(--font-heading);font-size:28px;margin:0 0 4px">Export</h1>
+<div style="font-size:13px;color:var(--color-neutral-600);margin-bottom:18px">One file, ready for the Goodreads importer.</div>
+<div style="border-radius:28px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);padding:18px;margin-bottom:14px">
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center;margin-bottom:18px">
+<div><div style="font-family:var(--font-heading);font-size:24px;color:var(--color-accent-700)">{{ countRead }}</div><div style="font-size:10.5px;color:var(--color-neutral-600)">read</div></div>
+<div><div style="font-family:var(--font-heading);font-size:24px;color:var(--color-accent-700)">{{ countReading }}</div><div style="font-size:10.5px;color:var(--color-neutral-600)">reading</div></div>
+<div><div style="font-family:var(--font-heading);font-size:24px;color:var(--color-accent-700)">{{ countToRead }}</div><div style="font-size:10.5px;color:var(--color-neutral-600)">to-read</div></div>
+</div>
+<button onClick="{{ doExport }}" style="width:100%;height:54px;border-radius:999px;border:0;background:var(--color-accent);color:#fff;font-family:var(--font-heading);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;box-shadow:var(--shadow-md)">
+<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"></path><path d="M7 12l5 5 5-5"></path><path d="M5 20h14"></path></svg>
+Download CSV for Goodreads
+</button>
+<div style="text-align:center;font-size:11.5px;color:var(--color-neutral-600);margin-top:10px">{{ exportMeta }}</div>
+</div>
+<div style="border-radius:24px;background:var(--color-accent-100);border:1px solid var(--color-accent-200);padding:16px;margin-bottom:22px">
+<div style="font-family:var(--font-heading);font-size:15px;margin-bottom:9px">How the file is built</div>
+<div style="font-size:12.5px;line-height:1.6;color:var(--color-neutral-700)">Goodreads’ own column set, comma-separated, UTF-8. Decimal ratings are rounded to whole stars; fields with commas are quoted; each row keeps its shelf (read, currently-reading, to-read) so nothing lands on the wrong pile. Re-importing the same file is safe.</div>
+</div>
+
+<h2 style="font-family:var(--font-heading);font-size:22px;margin:0 0 4px">Backup</h2>
+<div style="font-size:13px;color:var(--color-neutral-600);margin-bottom:14px">A full copy — ratings, notes, shelves <em>and</em> reading progress. The CSV above deliberately keeps Goodreads’ columns, so it can’t carry your progress percentages; this file can.</div>
+<div style="border-radius:24px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);padding:16px;margin-bottom:22px">
+<button onClick="{{ doBackup }}" style="width:100%;height:48px;border-radius:999px;border:0;background:var(--color-accent);color:#fff;font-family:var(--font-heading);font-size:14.5px;cursor:pointer;margin-bottom:12px">Download backup (.json)</button>
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:8px">Restore from a backup file</div>
+<input type="file" accept="application/json,.json" onChange="{{ onRestoreFile }}" style="width:100%;font-family:var(--font-body);font-size:12px;color:var(--color-neutral-700)">
+<div style="font-size:11.5px;color:var(--color-neutral-600);margin-top:10px">Restoring replaces what is currently on your shelf.</div>
+</div>
+
+<h2 style="font-family:var(--font-heading);font-size:22px;margin:0 0 4px">Cloud sync</h2>
+<div style="font-size:13px;color:var(--color-neutral-600);margin-bottom:14px">{{ syncBlurb }}</div>
+<div style="border-radius:24px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);padding:16px">
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:8px">Sync code</div>
+<input value="{{ syncCode }}" onInput="{{ onSyncCode }}" placeholder="Paste or generate a code" style="width:100%;box-sizing:border-box;height:44px;border-radius:999px;border:1px solid var(--color-neutral-300);background:var(--color-bg);padding:0 16px;font-family:ui-monospace,monospace;font-size:12.5px;color:var(--color-text);outline:0;margin-bottom:10px">
+<button onClick="{{ genSyncCode }}" style="width:100%;height:40px;border-radius:999px;border:1px solid var(--color-neutral-300);background:transparent;color:var(--color-text);font-family:var(--font-body);font-weight:600;font-size:12.5px;cursor:pointer;margin-bottom:14px">Generate a new code</button>
+<div style="display:flex;gap:8px;margin-bottom:12px">
+<button onClick="{{ syncPush }}" style="flex:1;height:44px;border-radius:999px;border:0;background:var(--color-accent);color:#fff;font-family:var(--font-heading);font-size:13.5px;cursor:pointer">Upload</button>
+<button onClick="{{ syncPull }}" style="flex:1;height:44px;border-radius:999px;border:1px solid var(--color-neutral-300);background:transparent;color:var(--color-text);font-family:var(--font-heading);font-size:13.5px;cursor:pointer">Download</button>
+</div>
+<div style="font-size:11.5px;color:var(--color-neutral-600)">{{ syncStatus }}</div>
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin:14px 0 8px">Server address</div>
+<input value="{{ syncUrl }}" onInput="{{ onSyncUrl }}" placeholder="{{ syncUrlPlaceholder }}" style="width:100%;box-sizing:border-box;height:40px;border-radius:999px;border:1px solid var(--color-neutral-300);background:var(--color-bg);padding:0 16px;font-family:ui-monospace,monospace;font-size:11.5px;color:var(--color-text);outline:0">
+<div style="font-size:11.5px;color:var(--color-neutral-600);margin-top:8px">Address of your sync Worker. Change it only if you renamed or moved it; leave empty to use the default.</div>
+</div>
+<div style="border-radius:24px;background:var(--color-accent-100);border:1px solid var(--color-accent-200);padding:16px;margin-top:14px">
+<div style="font-family:var(--font-heading);font-size:15px;margin-bottom:9px">Keep the code private</div>
+<div style="font-size:12.5px;line-height:1.6;color:var(--color-neutral-700)">The code is the only thing protecting your data — anyone who has it can read and overwrite your shelf. Treat it like a password: use the generated one, don’t post it anywhere, and paste it on your other devices to share the same shelf.</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isAdd }}" hint-placeholder-val="{{ false }}">
+<div style="padding:16px 18px 0">
+<button onClick="{{ back }}" style="width:40px;height:40px;border-radius:999px;border:0;background:var(--color-neutral-100);cursor:pointer;display:grid;place-items:center;margin-bottom:14px">
+<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+</button>
+<h1 style="font-family:var(--font-heading);font-size:28px;margin:0 0 16px">Add a book</h1>
+<div style="display:flex;gap:8px;margin-bottom:18px">
+<sc-for list="{{ addTabs }}" as="t" hint-placeholder-count="3">
+<button onClick="{{ t.go }}" style="flex:1;height:38px;border-radius:999px;border:1px solid {{ t.bd }};background:{{ t.bg }};color:{{ t.fg }};font-family:var(--font-body);font-weight:600;font-size:12.5px;cursor:pointer">{{ t.label }}</button>
+</sc-for>
+</div>
+
+<sc-if value="{{ addSearch }}" hint-placeholder-val="{{ true }}">
+<div>
+<div style="display:flex;align-items:center;gap:10px;height:48px;padding:0 16px;border-radius:999px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-300);margin-bottom:16px">
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" style="color:var(--color-neutral-500);flex:none"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.2-3.2"></path></svg>
+<input value="{{ addQuery }}" onInput="{{ onAddQuery }}" placeholder="Title, author or ISBN" style="flex:1;border:0;outline:0;background:transparent;font-family:var(--font-body);font-size:14px;min-width:0">
+</div>
+<sc-for list="{{ addResults }}" as="b" hint-placeholder-count="4">
+<div style="display:flex;align-items:center;gap:13px;padding:10px 0;border-bottom:1px solid var(--color-neutral-200)">
+<div style="width:44px;height:66px;flex:none;border-radius:7px;overflow:hidden;position:relative;background:{{ b.ph }}">
+<div style="position:absolute;inset:0;padding:6px;font-family:var(--font-heading);font-size:9px;line-height:1.15;color:rgba(255,255,255,.95)">{{ b.short }}</div>
+<sc-if value="{{ b.hasCover }}" hint-placeholder-val="{{ false }}"><img src="{{ b.coverUrl }}" data-bid="{{ b.id }}" onError="{{ hideImg }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></sc-if>
+</div>
+<div style="flex:1;min-width:0">
+<div style="font-size:13.5px;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ b.title }}</div>
+<div style="font-size:11.5px;color:var(--color-neutral-600)">{{ b.authorShort }}</div>
+</div>
+<button onClick="{{ b.add }}" style="height:34px;padding:0 14px;border-radius:999px;border:0;background:var(--color-accent-200);color:var(--color-accent-800);font-family:var(--font-body);font-weight:700;font-size:12px;cursor:pointer;flex:none">{{ b.addLabel }}</button>
+</div>
+</sc-for>
+
+<sc-if value="{{ hasAddQuery }}" hint-placeholder-val="{{ false }}">
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin:18px 0 8px">From Open Library</div>
+<sc-if value="{{ addExternalLoading }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;color:var(--color-neutral-600);padding:6px 0">Searching…</div></sc-if>
+<sc-for list="{{ addExternalResults }}" as="b" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:13px;padding:10px 0;border-bottom:1px solid var(--color-neutral-200)">
+<div style="width:44px;height:66px;flex:none;border-radius:7px;overflow:hidden;position:relative;background:{{ b.ph }}">
+<div style="position:absolute;inset:0;padding:6px;font-family:var(--font-heading);font-size:9px;line-height:1.15;color:rgba(255,255,255,.95)">{{ b.short }}</div>
+<sc-if value="{{ b.hasCover }}" hint-placeholder-val="{{ false }}"><img src="{{ b.coverUrl }}" onError="{{ hideExtImg }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></sc-if>
+</div>
+<div style="flex:1;min-width:0">
+<div style="font-size:13.5px;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ b.title }}</div>
+<div style="font-size:11.5px;color:var(--color-neutral-600)">{{ b.authorShort }}</div>
+</div>
+<button onClick="{{ b.add }}" style="height:34px;padding:0 14px;border-radius:999px;border:0;background:var(--color-accent-200);color:var(--color-accent-800);font-family:var(--font-body);font-weight:700;font-size:12px;cursor:pointer;flex:none">Add</button>
+</div>
+</sc-for>
+<sc-if value="{{ addExternalEmpty }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;color:var(--color-neutral-600);padding:6px 0">No matches on Open Library.</div></sc-if>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ addManual }}" hint-placeholder-val="{{ false }}">
+<div>
+<input value="{{ mTitle }}" onInput="{{ onMTitle }}" placeholder="Title" style="width:100%;box-sizing:border-box;height:48px;border-radius:999px;border:1px solid var(--color-neutral-300);background:var(--color-neutral-100);padding:0 18px;font-family:var(--font-body);font-size:14px;margin-bottom:10px;outline:0">
+<input value="{{ mAuthor }}" onInput="{{ onMAuthor }}" placeholder="Author" style="width:100%;box-sizing:border-box;height:48px;border-radius:999px;border:1px solid var(--color-neutral-300);background:var(--color-neutral-100);padding:0 18px;font-family:var(--font-body);font-size:14px;margin-bottom:10px;outline:0">
+<input value="{{ mIsbn }}" onInput="{{ onMIsbn }}" placeholder="ISBN13 (optional — pulls the cover)" style="width:100%;box-sizing:border-box;height:48px;border-radius:999px;border:1px solid var(--color-neutral-300);background:var(--color-neutral-100);padding:0 18px;font-family:var(--font-body);font-size:14px;margin-bottom:16px;outline:0">
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:8px">Shelf</div>
+<div style="display:flex;gap:8px;margin-bottom:18px">
+<sc-for list="{{ manualShelves }}" as="s" hint-placeholder-count="3">
+<button onClick="{{ s.pick }}" style="flex:1;height:38px;border-radius:999px;border:1px solid {{ s.bd }};background:{{ s.bg }};color:{{ s.fg }};font-family:var(--font-body);font-weight:600;font-size:11.5px;cursor:pointer">{{ s.label }}</button>
+</sc-for>
+</div>
+<button onClick="{{ saveManual }}" style="width:100%;height:52px;border-radius:999px;border:0;background:var(--color-accent);color:#fff;font-family:var(--font-heading);font-size:15px;cursor:pointer">Add to shelf</button>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<div style="height:calc(96px + env(safe-area-inset-bottom))"></div>
+</div>
+
+<sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+<div style="position:fixed;left:18px;right:18px;bottom:calc(96px + env(safe-area-inset-bottom));z-index:6;padding:13px 16px;border-radius:999px;background:var(--color-neutral-900);color:var(--color-neutral-100);font-size:12.5px;box-shadow:var(--shadow-lg);text-align:center">{{ toast }}</div>
+</sc-if>
+
+<!-- Fixed, not sticky: a sticky element stops sticking once its own place in
+     the flow scrolls into view, so at the very bottom of a long shelf the bar
+     detached and rode up with the content. Fixed pins it to the screen for
+     every scroll position, and the spacer above reserves its height so the
+     last row is never hidden behind it. -->
+<div style="position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--color-bg);border-top:1px solid var(--color-neutral-200);padding:8px 8px calc(10px + env(safe-area-inset-bottom));display:flex;align-items:center">
+<sc-for list="{{ nav }}" as="n" hint-placeholder-count="5">
+<button onClick="{{ n.go }}" style="flex:1;background:transparent;border:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;color:{{ n.fg }};font-family:var(--font-body);font-size:9.5px;font-weight:600;letter-spacing:.02em">
+<span style="display:grid;place-items:center;width:44px;height:26px;border-radius:999px;background:{{ n.pill }}">{{ n.icon }}</span>
+{{ n.label }}
+</button>
+</sc-for>
+</div>
+
+<button onClick="{{ openAdd }}" style="position:fixed;right:18px;bottom:calc(90px + env(safe-area-inset-bottom));z-index:7;width:56px;height:56px;border-radius:999px;border:0;background:var(--color-accent);color:#fff;box-shadow:var(--shadow-lg);cursor:pointer;display:grid;place-items:center">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+</button>
+
+</div>
+</x-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:412,&quot;height&quot;:892},&quot;variant&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;rails&quot;,&quot;shelf&quot;,&quot;editorial&quot;],&quot;default&quot;:&quot;rails&quot;,&quot;tsType&quot;:&quot;'rails'|'shelf'|'editorial'&quot;,&quot;section&quot;:&quot;Library home&quot;},&quot;fullscreen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Device&quot;},&quot;persist&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Device&quot;}}">
+// The sync endpoint is a standalone Cloudflare Worker on its own domain
+// (workers.dev), not a same-origin API route — Pages' drag-and-drop upload
+// can't deploy Pages Functions, so /api/sync isn't reachable on this site at
+// all. Every sync call is therefore cross-origin against this fixed URL; see
+// cloudflare-worker/sync-worker.js for the server side and its CORS handling.
+const SYNC_URL_FALLBACK = 'https://bookshelf-sync.cloudflare-uncommon.workers.dev';
+
+// The address is editable in Export -> Cloud sync and kept by the support
+// layer in localStorage, so renaming the Worker (or moving off workers.dev)
+// doesn't mean rebuilding the app. The constant above is only the default for
+// a device that has never been told otherwise.
+function syncUrl() {
+  return (window.bookshelfSync && window.bookshelfSync.url) || SYNC_URL_FALLBACK;
+}
+
+// The tab the back button unwinds to before letting the app close.
+const ROOT_SCREEN = 'library';
+
+// ── Reading streak ────────────────────────────────────────────────────────
+// A day "counts" when reading progress was recorded on it, tracked as a list
+// of local calendar dates in state.readDays.
+//
+// Local, deliberately: toISOString() would key the day off UTC, so a session
+// at 23:30 in Moscow lands on tomorrow's date and an evening reader's streak
+// breaks every single night.
+function dayKey(date) {
+  return date.getFullYear() + '-' +
+    String(date.getMonth() + 1).padStart(2, '0') + '-' +
+    String(date.getDate()).padStart(2, '0');
+}
+
+function todayKey() { return dayKey(new Date()); }
+
+// Length of the run of consecutive days ending today — or ending yesterday,
+// since not having read *yet* today doesn't mean the run is over. It only
+// breaks once a full day has passed with nothing recorded.
+function readingStreak(days, today) {
+  if (!days || !days.length) return 0;
+  const seen = new Set(days);
+  const cursor = new Date(today + 'T00:00:00');
+  if (!seen.has(today)) {
+    cursor.setDate(cursor.getDate() - 1);
+    if (!seen.has(dayKey(cursor))) return 0;
+  }
+  let n = 0;
+  while (seen.has(dayKey(cursor))) {
+    n++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return n;
+}
+
+const PH = [
+  'linear-gradient(150deg,#c67139,#8a4520)',
+  'linear-gradient(150deg,#8fa073,#56633f)',
+  'linear-gradient(150deg,#a19786,#5d5648)',
+  'linear-gradient(150deg,#d79a6a,#a4551f)',
+  'linear-gradient(150deg,#6f7f52,#3d472b)',
+  'linear-gradient(150deg,#3f3b37,#201e1d)'
+];
+const SHELVES = [
+  { id: 'read', label: 'Read' },
+  { id: 'currently-reading', label: 'Reading' },
+  { id: 'to-read', label: 'Want to read' }
+];
+const MONTHS = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+const ICONS = {
+  shelf: 'M4 5h5v14H4zM11 5h4v14h-4zM17.5 5.6l3.4 1-3.7 13.3-3.4-1z',
+  reading: 'M4 5.5c3 0 6 .6 8 2 2-1.4 5-2 8-2v12c-3 0-6 .6-8 2-2-1.4-5-2-8-2z',
+  lists: 'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01',
+  stats: 'M5 19V11M12 19V5M19 19v-6',
+  export: 'M12 4v11M7 12l5 5 5-5M5 20h14'
+};
+
+class Component extends DCLogic {
+  state = {
+    books: null, screen: 'library', shelf: 'read', selId: null,
+    query: '', searchScope: 'shelf', limit: 24, goal: 60, progress: {},
+    lastProgressId: null, toast: '', readDays: [],
+    syncCode: '', syncStatus: '', syncUrl: '',
+    addTab: 'search', addQuery: '', addExternal: [], addExternalLoading: false,
+    mTitle: '', mAuthor: '', mIsbn: '', mShelf: 'to-read'
+  };
+
+  covers = {};
+  stage = {};
+  navStack = [];
+  requested = new Set();
+  queue = [];
+  inflight = 0;
+  extReqId = 0;
+  lastScreen = 'library';
+  // id -> blob: URL for a cover whose actual image bytes are cached in
+  // IndexedDB (see pwa/index.html's BookshelfDB) — these render with no
+  // network dependency at all, unlike `covers` above which only remembers a
+  // remote URL that still has to be fetched live every time.
+  offlineCovers = {};
+  cachingCovers = new Set();
+
+  lookupCover(b) {
+    const key = b.id;
+    if (this.requested.has(key)) return;
+    this.requested.add(key);
+    this.queue.push(b);
+    this.pump();
+  }
+
+  pump() {
+    while (this.inflight < 4 && this.queue.length) {
+      const b = this.queue.shift();
+      this.inflight++;
+      const url = 'https://openlibrary.org/search.json?limit=1&fields=cover_i&title='
+        + encodeURIComponent(String(b.title ?? '').replace(/[:(].*$/, '').trim())
+        + (b.author ? '&author=' + encodeURIComponent(String(b.author).split(',')[0]) : '');
+      const ac = new AbortController();
+      let done = false;
+      const release = () => {
+        if (done) return;
+        done = true;
+        this.inflight--;
+        this.pump();
+      };
+      const timer = setTimeout(() => { ac.abort(); release(); }, 6000);
+      fetch(url, { signal: ac.signal }).then(r => r.json()).then(j => {
+        const cid = j && j.docs && j.docs[0] && j.docs[0].cover_i;
+        if (cid) {
+          this.covers[b.id] = 'https://covers.openlibrary.org/b/id/' + cid + '-M.jpg';
+          this.saveCovers();
+          clearTimeout(this._tick);
+          this._tick = setTimeout(() => this.forceUpdate(), 150);
+        }
+      }).catch(() => {}).then(() => { clearTimeout(timer); release(); });
+    }
+  }
+
+  get storeKey() { return 'bookshelf.v1'; }
+  get coverKey() { return 'bookshelf.covers.v1'; }
+  get stageKey() { return 'bookshelf.stage.v1'; }
+
+  loadCovers() {
+    try {
+      const raw = localStorage.getItem(this.coverKey);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (cached && typeof cached === 'object') Object.assign(this.covers, cached);
+      }
+    } catch (e) { /* corrupt cache — ignore */ }
+    try {
+      // `stage[id]` records that the ISBN-cover URL for this book is known
+      // to 404 (OpenLibrary has no cover under that ISBN even though a
+      // title/author search found one elsewhere). Without persisting this,
+      // every fresh load forgot that and retried the same failing request —
+      // the image would flash empty, fall back, and repeat next launch.
+      const raw = localStorage.getItem(this.stageKey);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (cached && typeof cached === 'object') Object.assign(this.stage, cached);
+      }
+    } catch (e) { /* corrupt cache — ignore */ }
+  }
+
+  saveCovers() {
+    clearTimeout(this._saveCovers);
+    this._saveCovers = setTimeout(() => {
+      try { localStorage.setItem(this.coverKey, JSON.stringify(this.covers)); } catch (e) { /* storage full or blocked */ }
+      try { localStorage.setItem(this.stageKey, JSON.stringify(this.stage)); } catch (e) { /* storage full or blocked */ }
+    }, 500);
+  }
+
+  // ── Offline cover cache (IndexedDB, via pwa/index.html's BookshelfDB) ──
+  loadOfflineCovers() {
+    if (!window.bookshelfDB || !window.memoryManager) return; // support script missing — degrade silently
+    window.bookshelfDB.getAllCovers().then(records => {
+      const map = {};
+      (records || []).forEach(r => {
+        if (r && r.coverBlob) map[r.id] = window.memoryManager.createUrl(r.coverBlob);
+      });
+      this.offlineCovers = map;
+      this.forceUpdate();
+    }).catch(() => { /* IndexedDB unavailable — covers just stay network-only this session */ });
+  }
+
+  // Called for every currently-visible book on each update (parallel to the
+  // OpenLibrary lookup below). Best-effort and fully async: a live URL is
+  // already rendering this session regardless of whether caching succeeds.
+  maybeCacheCoverOffline(b) {
+    if (!window.fetchImageBlob || !window.bookshelfDB) return;
+    if (this.offlineCovers[b.id] || this.cachingCovers.has(b.id)) return;
+    const d = this.deco(b); // reuse the exact URL this book is already rendering with
+    if (!d.hasCover || !d.coverUrl) return;
+    this.cachingCovers.add(b.id);
+    window.fetchImageBlob(d.coverUrl)
+      .then(blob => window.bookshelfDB.saveCover(b.id, blob).then(() => {
+        this.offlineCovers[b.id] = window.memoryManager.createUrl(blob);
+        this.forceUpdate();
+      }))
+      .catch(() => { /* stays network-only; will retry next session */ })
+      .then(() => this.cachingCovers.delete(b.id));
+  }
+
+  saveLocal() {
+    if (!this.props.persist) return;
+    // Never persist an empty library. The catalog arrives from a separate
+    // async script (window.__BOOKS); if it hasn't landed yet the app renders
+    // with books:[] for a moment, and writing THAT would wipe every rating,
+    // note and progress the user has. An empty list is always a load state,
+    // never a real one — the only legitimate way to empty the shelf is
+    // deleting books one by one, which can't reach zero in practice.
+    if (!this._ready) return;
+    const { books } = this.state;
+    if (!books || !books.length) return;
+    try {
+      localStorage.setItem(this.storeKey, JSON.stringify(this.snapshot()));
+    } catch (e) { /* storage full or blocked */ }
+  }
+
+  // The single serialised form of everything the user has changed. Used for
+  // localStorage, the .json backup file and the cloud payload alike, so the
+  // three can never drift apart.
+  snapshot() {
+    const { books, progress, goal, shelf, lastProgressId, readDays } = this.state;
+    const slim = (books || []).map(b => ({ id: b.id, myRating: b.myRating, shelf: b.shelf, dateRead: b.dateRead, note: b.note, _new: b._new ? b : undefined }));
+    return { v: 1, slim, progress, goal, shelf, lastProgressId, readDays: readDays || [], updatedAt: Date.now() };
+  }
+
+  // Re-apply a snapshot on top of the pristine catalog.
+  mergeSnapshot(catalog, d) {
+    const byId = {};
+    (d.slim || []).forEach(x => { byId[x.id] = x; });
+    const extras = (d.slim || []).filter(x => x._new).map(x => x._new);
+    const merged = catalog.map(b => byId[b.id]
+      ? { ...b, myRating: byId[b.id].myRating, shelf: byId[b.id].shelf, dateRead: byId[b.id].dateRead, note: byId[b.id].note || '' }
+      : b);
+    return {
+      books: [...extras, ...merged], progress: d.progress || {},
+      goal: d.goal || 60, shelf: d.shelf || 'read',
+      lastProgressId: d.lastProgressId == null ? null : d.lastProgressId,
+      // Absent in snapshots written before streaks existed — an older backup
+      // or another device that hasn't updated yet restores cleanly with an
+      // empty history rather than crashing on undefined.
+      readDays: Array.isArray(d.readDays) ? d.readDays : []
+    };
+  }
+
+  loadLocal(books) {
+    if (!this.props.persist) return null;
+    try {
+      const raw = localStorage.getItem(this.storeKey);
+      if (!raw) return null;
+      return this.mergeSnapshot(books, JSON.parse(raw));
+    } catch (e) { return null; }
+  }
+
+  // ── Backup to / restore from a local file ──────────────────────────────
+  doBackup() {
+    const payload = { app: 'bookshelf', kind: 'backup', v: 1, exportedAt: new Date().toISOString(), data: this.snapshot() };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'bookshelf-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    this.say('Backup downloaded — ' + (this.state.books || []).length + ' books');
+  }
+
+  restoreSnapshot(d, whence) {
+    if (!d || !Array.isArray(d.slim)) { this.say('That file is not a Bookshelf backup'); return false; }
+    if (!this._catalog) { this.say('Still loading — try again in a moment'); return false; }
+    this.setState(this.mergeSnapshot(this._catalog, d));
+    this.say('Restored from ' + whence + ' — ' + d.slim.length + ' books');
+    return true;
+  }
+
+  onRestoreFile(e) {
+    const file = e.target && e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let parsed;
+      try { parsed = JSON.parse(String(reader.result)); } catch (err) { this.say('Could not read that file'); return; }
+      // Accept both the wrapped backup file and a bare snapshot.
+      this.restoreSnapshot(parsed && parsed.data ? parsed.data : parsed, 'file');
+    };
+    reader.onerror = () => this.say('Could not read that file');
+    reader.readAsText(file);
+  }
+
+  // ── Cloud sync (Cloudflare Pages Function + KV) ────────────────────────
+  get syncCodeKey() { return 'bookshelf.synccode.v1'; }
+
+  loadSyncCode() {
+    try { return localStorage.getItem(this.syncCodeKey) || ''; } catch (e) { return ''; }
+  }
+
+  persistSyncCode(code) {
+    try {
+      if (code) localStorage.setItem(this.syncCodeKey, code);
+      else localStorage.removeItem(this.syncCodeKey);
+    } catch (e) { /* blocked */ }
+  }
+
+  syncPush() {
+    const code = (this.state.syncCode || '').trim();
+    if (code.length < 16) { this.setState({ syncStatus: 'Enter a sync code first (16+ characters).' }); return; }
+    if (!this._ready) { this.setState({ syncStatus: 'Still loading — try again in a moment.' }); return; }
+    this.setState({ syncStatus: 'Uploading…' });
+
+    // The outbox is what makes a failed press survivable: it retries on the
+    // next 'online' event or Background Sync wake-up instead of losing the
+    // upload. Without the support layer (it can fail to load, and the app
+    // must still work) fall back to the plain one-shot request.
+    const outbox = window.bookshelfSync;
+    if (!outbox) {
+      fetch(syncUrl(), {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', 'x-sync-code': code },
+        body: JSON.stringify(this.snapshot())
+      }).then(r => {
+        if (!r.ok) throw new Error('server said ' + r.status);
+        this.setState({ syncStatus: 'Uploaded ' + new Date().toLocaleTimeString() + '.' });
+      }).catch(err => {
+        this.setState({ syncStatus: 'Upload failed — ' + err.message });
+      });
+      return;
+    }
+
+    outbox.push(this.snapshot(), code).then(res => {
+      if (res.sent) {
+        this.setState({ syncStatus: 'Uploaded ' + new Date().toLocaleTimeString() + '.' });
+      } else if (res.offline) {
+        this.setState({ syncStatus: 'Offline — queued, will upload when you are back online.' });
+      } else {
+        this.setState({ syncStatus: 'Upload failed (' + res.error + ') — queued, will retry automatically.' });
+      }
+    });
+  }
+
+  syncPull() {
+    const code = (this.state.syncCode || '').trim();
+    if (code.length < 16) { this.setState({ syncStatus: 'Enter a sync code first (16+ characters).' }); return; }
+    this.setState({ syncStatus: 'Downloading…' });
+    fetch(syncUrl(), { method: 'GET', headers: { 'x-sync-code': code } }).then(r => {
+      if (r.status === 404) throw new Error('nothing stored under this code yet');
+      if (!r.ok) throw new Error('server said ' + r.status);
+      return r.json();
+    }).then(d => {
+      if (this.restoreSnapshot(d, 'cloud')) {
+        this.setState({ syncStatus: 'Downloaded ' + new Date().toLocaleTimeString() + '.' });
+      } else {
+        this.setState({ syncStatus: 'Stored data was not readable.' });
+      }
+    }).catch(err => {
+      this.setState({ syncStatus: 'Download failed — ' + err.message });
+    });
+  }
+
+  scheduleSave() {
+    clearTimeout(this._save);
+    this._save = setTimeout(() => this.saveLocal(), 400);
+  }
+
+  // Write immediately, skipping the debounce. Used when the app is being
+  // backgrounded or killed — on mobile a swiped-away PWA gets no further
+  // timers, so a pending debounced save would simply be lost.
+  flushSave() {
+    clearTimeout(this._save);
+    this.saveLocal();
+  }
+
+  componentDidUpdate() {
+    // Note: this runtime doesn't reliably hand componentDidUpdate a real
+    // prevState (it's sometimes undefined even after the first update), so
+    // rather than diff against it we just schedule a debounced save on
+    // every update — saveLocal() is cheap and the 400ms debounce coalesces
+    // bursts (e.g. dragging the progress slider) into one write.
+    // A book qualifies for the OpenLibrary search-based fallback when either
+    // it has no ISBN to try in the first place, or its ISBN cover is already
+    // known (from a persisted `stage`) to 404 — in both cases nothing else
+    // will ever trigger this lookup, since with a known-bad ISBN `deco()`
+    // renders no <img> at all and hideImg's onError can't fire again.
+    // `lookupCover` itself dedupes via `requested`, so this is safe to check
+    // on every update — each book is only ever queued once per session.
+    (this._visible || []).forEach(b => {
+      const noIsbn = !b.isbn13 && !b.isbn;
+      const isbnKnownBad = (this.stage[b.id] || 0) > 0;
+      if ((noIsbn || isbnKnownBad) && !this.covers[b.id]) this.lookupCover(b);
+      this.maybeCacheCoverOffline(b);
+    });
+    this.scheduleSave();
+    this.resetScrollOnScreenChange();
+  }
+
+  // Every "screen" (library, book detail, a rail's full list, stats, …) is
+  // really just a different chunk of markup inside ONE shared scrollable
+  // container — switching `state.screen` doesn't remount anything, so
+  // whatever scroll position the container was left at (e.g. scrolled to
+  // the bottom of a long rail, or to the delete button on a book page from
+  // a previous visit) carried straight over to the next screen. Snap it
+  // back to the top exactly once per screen change.
+  resetScrollOnScreenChange() {
+    const scr = this.state.screen;
+    if (scr === this.lastScreen) return;
+    this.lastScreen = scr;
+    const el = this.getScroller();
+    if (el) el.scrollTop = 0;
+  }
+
+  getScroller() {
+    if (typeof document === 'undefined') return null;
+    // The device-frame component (android-frame-global.js) renders exactly
+    // one element with these two inline styles — the scrollable viewport
+    // everything else sits inside. No id is exposed on it, so this is the
+    // only stable way to reach it from here.
+    return [...document.querySelectorAll('div')].find(d => d.style.overflow === 'auto' && d.style.flex) || null;
+  }
+
+  componentDidMount() {
+    this.loadCovers();
+    this.loadOfflineCovers();
+    const code = this.loadSyncCode();
+    if (code) this.setState({ syncCode: code });
+    this.awaitCatalog(0);
+
+    // Cloud-sync wiring. A queued upload can go out long after the press that
+    // failed — from the 'online' listener in the support layer or from the
+    // service worker — so the status line has to be told, or it keeps showing
+    // an error for an upload that has since succeeded.
+    const outbox = window.bookshelfSync;
+    if (outbox) {
+      this.setState({ syncUrl: outbox.url });
+      this._unsubSync = outbox.subscribe(status => this.setState({ syncStatus: status }));
+      outbox.hasPending().then(pending => {
+        if (pending) this.setState({ syncStatus: 'An upload is queued — it will go out when you are online.' });
+      });
+      outbox.flush();
+    }
+
+    this._onHide = () => { if (document.visibilityState === 'hidden') this.flushSave(); };
+    this._onPageHide = () => this.flushSave();
+    this._onPopState = () => this.popNav();
+    document.addEventListener('visibilitychange', this._onHide);
+    window.addEventListener('pagehide', this._onPageHide);
+    window.addEventListener('beforeunload', this._onPageHide);
+    window.addEventListener('popstate', this._onPopState);
+  }
+
+  componentWillUnmount() {
+    this.flushSave();
+    if (this._unsubSync) this._unsubSync();
+    document.removeEventListener('visibilitychange', this._onHide);
+    window.removeEventListener('pagehide', this._onPageHide);
+    window.removeEventListener('beforeunload', this._onPageHide);
+    window.removeEventListener('popstate', this._onPopState);
+  }
+
+  // ── Navigation history ──────────────────────────────────────────────
+  // Every "screen" is a chunk of markup inside the same component, not a
+  // real page, so by default the OS/Android back gesture had nothing to
+  // step back through and closed the app straight from a book page — and
+  // every in-app "back" chevron was hardcoded to a fixed destination
+  // ('library') rather than wherever the user actually came from.
+  //
+  // Fix: drilling into a screen (book detail, add-a-book, a list, a rail's
+  // full view) pushes a browser history entry carrying a snapshot of the
+  // screen being left. Both the in-app back button and the hardware/gesture
+  // back button then go through the exact same path — history.back() fires
+  // a popstate event, which pops that snapshot and restores it. At the true
+  // root (nothing pushed yet) there's nothing to pop, so back falls through
+  // to real browser/OS behaviour (closing the app), which is the correct,
+  // expected result there.
+  //
+  // Peer destinations — the bottom-nav tabs, the avatar's Stats shortcut and
+  // the "Reading now" hero card — go through goTab() below. They used to call
+  // setState directly on the theory that a tab switch isn't a drill-down and
+  // so shouldn't be pushed. True as far as it goes, but it left those screens
+  // with nothing on the stack: pressing the hardware back button on one of
+  // them found no snapshot to pop, fell through to real browser history, and
+  // closed the app.
+  navSnapshot() {
+    const s = this.state;
+    return { screen: s.screen, selId: s.selId, listKey: s.listKey, railKey: s.railKey, shelf: s.shelf, addTab: s.addTab };
+  }
+
+  pushScreen(patch) {
+    this.navStack.push(this.navSnapshot());
+    try { window.history.pushState({ bookshelfDepth: this.navStack.length }, ''); } catch (e) { /* History API unavailable */ }
+    this.setState(patch);
+  }
+
+  popNav() {
+    const prev = this.navStack.pop();
+    if (prev) this.setState(prev);
+    // else: already at the root — let the real back navigation proceed.
+  }
+
+  goBack() {
+    try { window.history.back(); } catch (e) { this.popNav(); }
+  }
+
+  // Stamp today onto a state patch as a day the user read. Called from every
+  // path that records progress; a no-op once today is already marked, so
+  // dragging a slider doesn't grow the list.
+  withReadDay(patch) {
+    const today = todayKey();
+    const days = this.state.readDays || [];
+    return days.includes(today) ? patch : { ...patch, readDays: [...days, today] };
+  }
+
+  // Switch to a peer destination. A tab bar shouldn't make the user press
+  // back once per tab they happened to visit, so this keeps AT MOST ONE
+  // entry on the stack — the shelf to return to — and collapses any
+  // drill-down history under it. One press of back from anywhere in the tab
+  // bar lands on the shelf; a second one leaves the app, which is where
+  // closing it is actually the expected outcome.
+  goTab(id) {
+    if (this.state.screen === id) return;
+
+    if (id === ROOT_SCREEN) {
+      if (!this.navStack.length) { this.setState({ screen: id }); return; }
+      this.navStack = [{ ...this.navStack[0], screen: ROOT_SCREEN }];
+      this.goBack();
+      return;
+    }
+
+    if (!this.navStack.length) { this.pushScreen({ screen: id }); return; }
+    // Already have an entry to come back to: reuse it rather than stacking.
+    this.navStack = [{ ...this.navStack[0], screen: ROOT_SCREEN }];
+    this.setState({ screen: id });
+  }
+
+  // window.__BOOKS is assigned by a sibling <script> that the runtime injects
+  // as a blob and executes asynchronously, so it is frequently NOT there yet
+  // when this component mounts. The old code read it once and, on a miss,
+  // fell back to fetch('books.json') — a file that doesn't exist on the host
+  // (404), leaving the shelf permanently empty until a lucky reload won the
+  // race. Poll briefly instead; the script always lands within a few frames.
+  awaitCatalog(attempt) {
+    const local = typeof window !== 'undefined' && window.__BOOKS;
+    if (local && local.length) { this.hydrate(local); return; }
+    if (attempt < 100) { setTimeout(() => this.awaitCatalog(attempt + 1), 50); return; }
+    // Last resort only — keeps the old path working if a books.json is ever
+    // shipped. On failure we leave state.books as null (the loading state)
+    // rather than [], so saveLocal() can't mistake it for an empty library.
+    fetch('books.json').then(r => r.json()).then(list => this.hydrate(list)).catch(() => this.setState({ loadFailed: true }));
+  }
+
+  hydrate(list) {
+    const books = list.map((b, i) => ({
+      ...b, id: i, note: '',
+      title: String(b.title ?? '').trim() || 'Untitled',
+      author: String(b.author ?? '').trim() || 'Unknown',
+      series: String(b.series ?? '')
+    }));
+    const progress = {};
+    books.filter(b => b.shelf === 'currently-reading').forEach((b, i) => {
+      progress[b.id] = [62, 38, 81, 24, 55, 13][i % 6];
+    });
+    const saved = this.loadLocal(books);
+    // Keep the pristine catalog so a restore (file or cloud) can be re-applied
+    // onto it without inheriting whatever is currently on screen.
+    this._catalog = books;
+    // Mark ready only once real books are in hand — this is what unlocks
+    // saveLocal() and guarantees we never overwrite good data with a
+    // half-initialised state.
+    this._ready = true;
+    this.setState(saved
+      ? { ...saved, progress: { ...progress, ...saved.progress } }
+      : { books, progress });
+  }
+
+  say(msg) {
+    clearTimeout(this._t);
+    this.setState({ toast: msg });
+    this._t = setTimeout(() => this.setState({ toast: '' }), 2200);
+  }
+
+  deco(raw) {
+    const b = { ...raw, title: String(raw.title ?? 'Untitled'), author: String(raw.author ?? 'Unknown'), series: String(raw.series ?? '') };
+    const h = b.title.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    // An offline-cached copy (real image bytes in IndexedDB) always wins:
+    // it renders with no network dependency at all, where every candidate
+    // below still needs a live fetch to actually show anything.
+    const offlineUrl = this.offlineCovers[b.id];
+    let url, hasCover;
+    if (offlineUrl) {
+      url = offlineUrl;
+      hasCover = true;
+    } else {
+      const cands = [b.isbn13, b.isbn]
+        .filter(x => x && String(x).length >= 10)
+        .map(x => 'https://covers.openlibrary.org/b/isbn/' + x + '-M.jpg?default=false');
+      if (this.covers[b.id]) cands.push(this.covers[b.id]);
+      url = cands[this.stage[b.id] || 0] || '';
+      hasCover = !!url;
+    }
+    const short = b.title.length > 42 ? b.title.slice(0, 40).trim() + '…' : b.title;
+    const author = b.author || 'Unknown';
+    return {
+      id: b.id, title: b.title, short, author,
+      authorShort: author.length > 24 ? author.split(',')[0] : author,
+      series: b.series, hasSeries: !!b.series,
+      ph: PH[h % PH.length], hasCover,
+      coverUrl: url,
+      rated: b.myRating > 0,
+      rating: b.myRating ? b.myRating.toFixed(1) : '—',
+      ratingLong: b.myRating ? b.myRating.toFixed(1) : 'Not rated',
+      ratingNum: b.myRating || 0,
+      ratingRounded: Math.round(b.myRating || 0),
+      ratingPct: ((b.myRating || 0) / 5 * 100) + '%',
+      open: () => this.pushScreen({ screen: 'book', selId: b.id })
+    };
+  }
+
+  phFor(title) {
+    const h = String(title || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    return PH[h % PH.length];
+  }
+
+  searchExternal(query) {
+    const q = query.trim();
+    const myReq = ++this.extReqId;
+    if (!q) { this.setState({ addExternal: [], addExternalLoading: false }); return; }
+    this.setState({ addExternalLoading: true });
+    const url = 'https://openlibrary.org/search.json?limit=8&fields=title,author_name,isbn,cover_i,number_of_pages_median&q=' + encodeURIComponent(q);
+    fetch(url).then(r => r.json()).then(j => {
+      if (myReq !== this.extReqId) return; // a newer query started — drop this stale response
+      const docs = (j && j.docs) || [];
+      const results = docs.map(d => ({
+        title: d.title || 'Untitled',
+        author: (d.author_name && d.author_name[0]) || 'Unknown',
+        isbn13: (d.isbn || []).find(x => String(x).length === 13) || '',
+        isbn: (d.isbn || [])[0] || '',
+        pages: d.number_of_pages_median || null,
+        coverId: d.cover_i || null
+      }));
+      this.setState({ addExternal: results, addExternalLoading: false });
+    }).catch(() => { if (myReq === this.extReqId) this.setState({ addExternal: [], addExternalLoading: false }); });
+  }
+
+  deleteBook(id) {
+    const book = (this.state.books || []).find(x => x.id === id);
+    if (!book) return;
+    if (typeof window !== 'undefined' && window.confirm && !window.confirm('Remove “' + book.title + '” from your library? This can’t be undone.') ) return;
+    const progress = { ...this.state.progress };
+    delete progress[id];
+    if (this.offlineCovers[id]) {
+      if (window.memoryManager) window.memoryManager.revokeUrl(this.offlineCovers[id]);
+      delete this.offlineCovers[id];
+    }
+    if (window.bookshelfDB) window.bookshelfDB.deleteCover(id).catch(() => {});
+    this.setState({
+      books: this.state.books.filter(x => x.id !== id),
+      progress, selId: null
+    });
+    // Pop rather than jump to 'library': the book being deleted no longer
+    // exists to come back to, so leaving via the same path "back" already
+    // uses keeps this consistent with every other screen exit instead of
+    // special-casing a fixed destination.
+    this.goBack();
+    this.say('“' + book.title + '” removed');
+  }
+
+  fmtDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  pillStyle(on) {
+    return on
+      ? { bg: 'var(--color-accent)', fg: '#fff', bd: 'var(--color-accent)' }
+      : { bg: 'transparent', fg: 'var(--color-neutral-700)', bd: 'var(--color-neutral-300)' };
+  }
+
+  exportCsv() {
+    const H = ['Title', 'Author', 'ISBN', 'ISBN13', 'My Rating', 'Average Rating', 'Number of Pages', 'Date Read', 'Date Added', 'Shelves', 'Bookshelves', 'My Review'];
+    const q = v => {
+      const s = v == null ? '' : String(v);
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const rows = (this.state.books || []).map(b => [
+      b.title, b.author, b.isbn ? '="' + b.isbn + '"' : '', b.isbn13 ? '="' + b.isbn13 + '"' : '',
+      b.myRating ? Math.round(b.myRating) : '', b.avgRating || '', b.pages || '',
+      b.dateRead || '', b.dateAdded || '', b.shelf, b.series || '', b.note || ''
+    ].map(q).join(','));
+    const csv = '\ufeff' + [H.join(','), ...rows].join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = 'goodreads_import.csv'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    this.say('goodreads_import.csv — ' + (this.state.books || []).length + ' books saved');
+  }
+
+  renderVals() {
+    const s = this.state;
+    const books = s.books || [];
+    const variant = this.props.variant || 'rails';
+    const sel = books.find(b => b.id === s.selId);
+
+    const q = s.query.trim().toLowerCase();
+    const searchAll = !!q && s.searchScope === 'all';
+    let pool = searchAll ? books.slice() : books.filter(b => b.shelf === s.shelf);
+    if (q) pool = pool.filter(b => (b.title + ' ' + b.author).toLowerCase().includes(q));
+    const flat = pool.slice(0, s.limit).map(b => this.deco(b));
+    const shelfRows = [];
+    for (let i = 0; i < flat.length; i += 3) shelfRows.push({ key: i, books: flat.slice(i, i + 3) });
+
+    const readingRaw = books.filter(b => b.shelf === 'currently-reading');
+    const reading = readingRaw.map(b => {
+      const d = this.deco(b);
+      const pct = s.progress[b.id] ?? 0;
+      const pages = b.pages || 320;
+      return {
+        ...d, pctNum: pct, pct: pct + '%',
+        progressLabel: 'page ' + Math.round(pages * pct / 100) + ' of ' + pages,
+        onProgress: e => this.setState(this.withReadDay({
+          progress: { ...s.progress, [b.id]: +e.target.value },
+          lastProgressId: b.id
+        })),
+        finish: () => {
+          const today = new Date().toISOString().slice(0, 10);
+          this.setState(this.withReadDay({
+            books: books.map(x => x.id === b.id ? { ...x, shelf: 'read', dateRead: today } : x),
+            progress: { ...s.progress, [b.id]: 100 },
+            lastProgressId: null
+          }));
+          this.say('Finished — moved to Read, dated today');
+        }
+      };
+    });
+    // The hero card follows the book you touched last, falling back to the
+    // first still-reading book when nothing has been edited yet (or when the
+    // last-edited one has since been finished and left the shelf).
+    const now = reading.find(b => b.id === s.lastProgressId) || reading[0] || null;
+
+    const byYear = {};
+    books.filter(b => b.shelf === 'read' && b.dateRead).forEach(b => {
+      const y = b.dateRead.slice(0, 4);
+      byYear[y] = (byYear[y] || 0) + 1;
+    });
+    const yearKeys = Object.keys(byYear).sort().reverse();
+    const maxYear = Math.max(1, ...Object.values(byYear));
+    const years = yearKeys.map(y => ({
+      year: y, count: byYear[y], w: (byYear[y] / maxYear * 100) + '%',
+      bg: y === '2026' ? 'var(--color-accent)' : 'var(--color-accent-2-500)'
+    }));
+    const today = todayKey();
+    const streak = readingStreak(s.readDays, today);
+    const streakToday = (s.readDays || []).includes(today);
+
+    const monthCounts = new Array(12).fill(0);
+    books.filter(b => b.shelf === 'read' && (b.dateRead || '').startsWith('2026'))
+      .forEach(b => { monthCounts[+b.dateRead.slice(5, 7) - 1]++; });
+    const maxMonth = Math.max(1, ...monthCounts);
+    const months = monthCounts.map((c, i) => ({
+      label: MONTHS[i], count: c || '',
+      h: Math.max(4, c / maxMonth * 74) + 'px',
+      bg: c ? 'var(--color-accent)' : 'var(--color-neutral-300)'
+    }));
+    const yearCount = byYear['2026'] || 0;
+
+    const wanted = books.filter(b => b.shelf === 'to-read');
+    const seriesMap = {};
+    wanted.forEach(b => {
+      const key = b.series ? b.series.replace(/#.*/, '').trim() : 'Standalone';
+      (seriesMap[key] = seriesMap[key] || []).push(b);
+    });
+    const lists = Object.keys(seriesMap)
+      .sort((a, b) => seriesMap[b].length - seriesMap[a].length)
+      .slice(0, 8)
+      .map((k, i) => ({
+        title: k === 'Standalone' ? 'One-offs & singles' : k,
+        count: seriesMap[k].length,
+        sample: seriesMap[k].slice(0, 3).map(b => b.title).join(' · '),
+        ph: PH[i % PH.length],
+        open: () => this.pushScreen({ screen: 'list', listKey: k })
+      }));
+    const listKey = s.listKey;
+    const listBooks = (seriesMap[listKey] || []).map(b => this.deco(b));
+
+    // Each rail keeps its FULL book list (not just the ~14 that fit on
+    // screen) so the header count is accurate and "See all" has something to
+    // open — previously the count was read off the already-sliced preview,
+    // so e.g. "Reading now" silently under-reported past 10 books, and there
+    // was no way to reach anything past the horizontal scroll at all.
+    const RAIL_PREVIEW = 14;
+    const railYears = Object.keys(byYear).sort().reverse();
+    const railGroups = [
+      { key: 'reading', title: 'Reading now', full: readingRaw },
+      { key: 'wanted', title: 'Waiting for you', full: wanted },
+      ...railYears.map(y => ({
+        key: 'year:' + y,
+        title: y,
+        full: books.filter(b => (b.dateRead || '').startsWith(y))
+          .sort((a, b) => (b.dateRead || '').localeCompare(a.dateRead || ''))
+      }))
+    ].filter(g => g.full.length);
+    const rails = railGroups.map(g => ({
+      title: g.title,
+      count: g.full.length + (g.full.length === 1 ? ' book' : ' books'),
+      books: g.full.slice(0, RAIL_PREVIEW).map(b => this.deco(b)),
+      hasMore: g.full.length > RAIL_PREVIEW,
+      moreCount: g.full.length - RAIL_PREVIEW,
+      open: () => this.pushScreen({ screen: 'rail', railKey: g.key })
+    }));
+    // Shelf pills (Read / Reading / Want to read) at the top of the library
+    // screen used to only set `s.shelf`, a value the rails view never reads
+    // — so tapping them visibly did nothing. They now open a full list via
+    // the same drill-down as rail groups, keyed 'shelf:<id>' rather than
+    // 'year:<y>' etc. Not included in `rails` itself: they're reached from
+    // the pills, not from a home-screen carousel.
+    const shelfGroups = SHELVES.map(sh => ({
+      key: 'shelf:' + sh.id,
+      title: sh.label,
+      full: books.filter(b => b.shelf === sh.id)
+        .sort((a, b) => (b.dateRead || b.dateAdded || '').localeCompare(a.dateRead || a.dateAdded || ''))
+    }));
+    const railGroup = [...railGroups, ...shelfGroups].find(g => g.key === s.railKey);
+    const railBooks = railGroup ? railGroup.full.map(b => this.deco(b)) : [];
+    const railTitle = railGroup ? railGroup.title : '';
+
+    const addQ = s.addQuery.trim().toLowerCase();
+    const addResults = (addQ ? books.filter(b => (b.title + ' ' + b.author + ' ' + b.isbn13).toLowerCase().includes(addQ)) : books.slice(0, 6))
+      .slice(0, 8).map(b => {
+        const d = this.deco(b);
+        return { ...d, addLabel: b.shelf === 'to-read' ? 'On list' : 'Add', add: () => {
+          this.setState({ books: books.map(x => x.id === b.id ? { ...x, shelf: 'to-read' } : x) });
+          this.say('“' + d.short + '” added to Want to read');
+        } };
+      });
+
+    const addExternalResults = (s.addExternal || []).map((r, i) => {
+      const coverUrl = r.coverId
+        ? 'https://covers.openlibrary.org/b/id/' + r.coverId + '-M.jpg'
+        : (r.isbn13 ? 'https://covers.openlibrary.org/b/isbn/' + r.isbn13 + '-M.jpg?default=false' : '');
+      const short = r.title.length > 42 ? r.title.slice(0, 40).trim() + '…' : r.title;
+      const authorShort = r.author.length > 24 ? r.author.split(',')[0] : r.author;
+      return {
+        title: r.title, short, authorShort,
+        ph: this.phFor(r.title), hasCover: !!coverUrl, coverUrl,
+        add: () => {
+          const nb = {
+            id: Date.now() + i, title: r.title, author: r.author, series: '',
+            isbn: r.isbn || '', isbn13: r.isbn13 || '', myRating: 0, avgRating: null,
+            pages: r.pages || null, dateRead: '', dateAdded: new Date().toISOString().slice(0, 10),
+            shelf: 'to-read', readCount: 0, note: '', _new: true
+          };
+          if (coverUrl) { this.covers[nb.id] = coverUrl; this.saveCovers(); }
+          this.setState({ books: [nb, ...this.state.books], addExternal: [], addQuery: '' });
+          this.say('“' + r.title + '” added to Want to read');
+        }
+      };
+    });
+    const addExternalEmpty = !s.addExternalLoading && !!addQ && addExternalResults.length === 0;
+
+    // Stats is deliberately absent: it lives behind the avatar in the shelf
+    // header instead, which keeps the bar to the four destinations used while
+    // actually reading.
+    const navDef = [
+      { id: 'library', label: 'Shelf', icon: ICONS.shelf, fill: true },
+      { id: 'reading', label: 'Reading', icon: ICONS.reading },
+      { id: 'lists', label: 'Lists', icon: ICONS.lists },
+      { id: 'export', label: 'Export', icon: ICONS.export }
+    ];
+    const activeNav = (s.screen === 'book' || s.screen === 'rail') ? 'library' : (s.screen === 'list' ? 'lists' : s.screen);
+    const nav = navDef.map(n => {
+      const on = activeNav === n.id;
+      return {
+        label: n.label,
+        fg: on ? 'var(--color-accent-800)' : 'var(--color-neutral-600)',
+        pill: on ? 'var(--color-accent-200)' : 'transparent',
+        icon: React.createElement('svg', {
+          width: 19, height: 19, viewBox: '0 0 24 24',
+          fill: n.fill ? 'currentColor' : 'none', stroke: 'currentColor',
+          strokeWidth: n.fill ? 0 : 2.4, strokeLinecap: 'round', strokeLinejoin: 'round'
+        }, React.createElement('path', { d: n.icon })),
+        go: () => this.goTab(n.id)
+      };
+    });
+
+    const selD = sel ? this.deco(sel) : null;
+    const seen = new Map();
+    [...pool.slice(0, s.limit), ...readingRaw, ...wanted.slice(0, 14), ...(sel ? [sel] : [])]
+      .forEach(b => seen.set(b.id, b));
+    if (variant === 'rails') rails.forEach(g => g.books.forEach(d => { const b = books.find(x => x.id === d.id); if (b) seen.set(b.id, b); }));
+    if (railGroup) railGroup.full.forEach(b => seen.set(b.id, b));
+    // Same reasoning as railGroup above: without this, a series list beyond
+    // the first ~14 "wanted" books prefetched for the home screen got no
+    // cover lookup — live or offline — at all, ever, for as long as the
+    // list stayed open.
+    (seriesMap[listKey] || []).forEach(b => seen.set(b.id, b));
+    this._visible = [...seen.values()].slice(0, 80);
+
+    const full = !!this.props.fullscreen;
+    return {
+      devW: full ? '100%' : 412, devH: full ? '100dvh' : 892, bare: full,
+      vShelf: variant === 'shelf' && !q, vEditorial: variant === 'editorial' && !q, vRails: variant === 'rails' && !q,
+      flatEmpty: !!q && flat.length === 0,
+      isLibrary: s.screen === 'library', isBook: s.screen === 'book', isReading: s.screen === 'reading',
+      isLists: s.screen === 'lists', isStats: s.screen === 'stats', isExport: s.screen === 'export',
+      isList: s.screen === 'list', listBooks,
+      listTitle: listKey === 'Standalone' ? 'One-offs & singles' : (listKey || ''),
+      listSubtitle: listBooks.length + ' books waiting',
+      backToLists: () => this.goBack(),
+      isRail: s.screen === 'rail', railBooks, railTitle,
+      railSubtitle: railBooks.length + (railBooks.length === 1 ? ' book' : ' books'),
+      isAdd: s.screen === 'add',
+      todayLabel: new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }),
+      query: s.query,
+      searchPlaceholder: 'Search ' + books.length + ' book' + (books.length === 1 ? '' : 's'),
+      hasQuery: !!q,
+      onQuery: e => {
+        const v = e.target.value;
+        this.setState(v.trim() ? { query: v, limit: 24 } : { query: v, limit: 24, searchScope: 'shelf' });
+      },
+      searchScopes: [
+        { label: 'This shelf', ...this.pillStyle(!searchAll), go: () => this.setState({ searchScope: 'shelf' }) },
+        { label: 'All ' + books.length + ' books', ...this.pillStyle(searchAll), go: () => this.setState({ searchScope: 'all' }) }
+      ],
+      tabs: SHELVES.map(sh => ({
+        // No " · " separator: the three pills have to share a 320px-wide
+        // screen without clipping, and the dots alone cost ~50px of it.
+        label: sh.label + ' ' + books.filter(b => b.shelf === sh.id).length,
+        ...this.pillStyle(s.shelf === sh.id),
+        // These used to only set `s.shelf`, a value the rails home screen
+        // (the deployed variant) never reads when deciding what to render —
+        // so tapping "Read 297" visibly did nothing. Open the full list
+        // instead, the same drill-down already used for rail groups.
+        go: () => this.pushScreen({ shelf: sh.id, limit: 24, screen: 'rail', railKey: 'shelf:' + sh.id })
+      })),
+      flat, shelfRows, rails,
+      // Only vShelf/vEditorial actually render `flat` (the thing `limit`
+      // paginates) — in the rails view this button used to show up anyway
+      // ("Show 24 more of 297") and do nothing, since rails ignore `limit`
+      // entirely and use per-group "See all" instead.
+      canLoadMore: (variant === 'shelf' || variant === 'editorial') && pool.length > s.limit,
+      moreLabel: 'Show ' + Math.min(24, pool.length - s.limit) + ' more of ' + pool.length,
+      loadMore: () => this.setState({ limit: s.limit + 24 }),
+      showNowCard: !!now && s.shelf !== 'currently-reading',
+      now, openNow: () => this.goTab('reading'),
+      openStats: () => this.goTab('stats'),
+      streak, streakLabel: streak === 1 ? 'day in a row' : 'days in a row',
+      streakBlurb: streak === 0
+        ? 'Move a book’s progress today to start a streak.'
+        : (streakToday
+            ? 'Counting today. Keep it going tomorrow.'
+            : 'Yesterday’s streak is still alive — record progress today to keep it.'),
+      reading,
+      readingSubtitle: reading.length + ' books on the go — drag to log where you are.',
+      sel: selD ? {
+        ...selD,
+        dateReadLabel: this.fmtDate(sel.dateRead),
+        dateAddedLabel: this.fmtDate(sel.dateAdded),
+        pagesLabel: sel.pages || '—',
+        readCount: sel.readCount || 1,
+        note: sel.note
+      } : {},
+      deleteBook: () => this.deleteBook(s.selId),
+      onRating: e => {
+        const v = +e.target.value;
+        this.setState({ books: books.map(x => x.id === s.selId ? { ...x, myRating: v } : x) });
+      },
+      onNote: e => {
+        const v = e.target.value;
+        this.setState({ books: books.map(x => x.id === s.selId ? { ...x, note: v } : x) });
+      },
+      shelfPicker: SHELVES.map(sh => ({
+        label: sh.label, ...this.pillStyle(sel && sel.shelf === sh.id),
+        pick: () => {
+          this.setState({ books: books.map(x => x.id === s.selId ? { ...x, shelf: sh.id } : x) });
+          this.say('Moved to ' + sh.label);
+        }
+      })),
+      back: () => this.goBack(),
+      lists, years, months, yearCount, goal: s.goal,
+      goalDeg: Math.min(360, yearCount / s.goal * 360) + 'deg',
+      goalHeadline: yearCount >= s.goal ? 'Goal met — keep going.' : (s.goal - yearCount) + ' books to go this year',
+      goalUp: () => this.setState({ goal: s.goal + 5 }),
+      goalDown: () => this.setState({ goal: Math.max(5, s.goal - 5) }),
+      countRead: books.filter(b => b.shelf === 'read').length,
+      countReading: readingRaw.length,
+      countToRead: wanted.length,
+      exportMeta: books.length + ' rows · Goodreads column set · UTF-8',
+      doExport: () => this.exportCsv(),
+      doBackup: () => this.doBackup(),
+      onRestoreFile: e => this.onRestoreFile(e),
+      syncCode: s.syncCode,
+      syncStatus: s.syncStatus || 'Not synced yet on this device.',
+      syncBlurb: 'Keeps your shelf on a server, so it survives clearing the browser and can be picked up on another device. Same code = same shelf.',
+      onSyncCode: e => {
+        const v = e.target.value.trim();
+        this.persistSyncCode(v);
+        this.setState({ syncCode: v });
+      },
+      genSyncCode: () => {
+        const bytes = new Uint8Array(24);
+        crypto.getRandomValues(bytes);
+        const v = [...bytes].map(b => b.toString(16).padStart(2, '0')).join('');
+        this.persistSyncCode(v);
+        this.setState({ syncCode: v, syncStatus: 'New code generated — upload to start using it.' });
+      },
+      syncUrl: s.syncUrl,
+      syncUrlPlaceholder: (window.bookshelfSync && window.bookshelfSync.defaultUrl) || SYNC_URL_FALLBACK,
+      onSyncUrl: e => {
+        const v = e.target.value.trim();
+        if (window.bookshelfSync) window.bookshelfSync.url = v;
+        this.setState({ syncUrl: v });
+      },
+      syncPush: () => this.syncPush(),
+      syncPull: () => this.syncPull(),
+      openAdd: () => this.pushScreen({ screen: 'add' }),
+      addTabs: [['search', 'Search'], ['manual', 'Manual']].map(([id, label]) => ({
+        label, ...this.pillStyle(s.addTab === id), go: () => this.setState({ addTab: id })
+      })),
+      addSearch: s.addTab === 'search', addManual: s.addTab === 'manual',
+      addQuery: s.addQuery,
+      onAddQuery: e => {
+        const v = e.target.value;
+        this.setState({ addQuery: v });
+        clearTimeout(this._extTimer);
+        this._extTimer = setTimeout(() => this.searchExternal(v), 450);
+      },
+      addResults,
+      hasAddQuery: !!addQ, addExternalResults, addExternalLoading: s.addExternalLoading, addExternalEmpty,
+      hideExtImg: e => { e.target.style.display = 'none'; },
+      mTitle: s.mTitle, mAuthor: s.mAuthor, mIsbn: s.mIsbn,
+      onMTitle: e => this.setState({ mTitle: e.target.value }),
+      onMAuthor: e => this.setState({ mAuthor: e.target.value }),
+      onMIsbn: e => this.setState({ mIsbn: e.target.value }),
+      manualShelves: SHELVES.map(sh => ({
+        label: sh.label, ...this.pillStyle(s.mShelf === sh.id), pick: () => this.setState({ mShelf: sh.id })
+      })),
+      saveManual: () => {
+        if (!s.mTitle.trim()) { this.say('A title is required'); return; }
+        const nb = {
+          id: Date.now(), title: s.mTitle.trim(), author: s.mAuthor.trim() || 'Unknown',
+          series: '', isbn: '', isbn13: s.mIsbn.trim(), myRating: 0, avgRating: null,
+          pages: null, dateRead: s.mShelf === 'read' ? new Date().toISOString().slice(0, 10) : '',
+          dateAdded: new Date().toISOString().slice(0, 10), shelf: s.mShelf, readCount: 1, note: '', _new: true
+        };
+        this.setState({ books: [nb, ...books], shelf: s.mShelf, mTitle: '', mAuthor: '', mIsbn: '' });
+        // Pop the "Add" entry pushed by openAdd, back to wherever it was
+        // opened from — not a hardcoded jump to 'library'.
+        this.goBack();
+        this.say('“' + nb.title + '” added');
+      },
+      nav, toast: s.toast,
+      hideImg: e => {
+        e.target.style.display = 'none';
+        const id = +e.target.dataset.bid;
+        if (Number.isNaN(id)) return;
+        this.stage[id] = (this.stage[id] || 0) + 1;
+        this.saveCovers();
+        const bk = (this.state.books || []).find(x => x.id === id);
+        if (bk && !this.covers[id]) this.lookupCover(bk);
+        clearTimeout(this._tick2);
+        this._tick2 = setTimeout(() => this.forceUpdate(), 100);
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>
