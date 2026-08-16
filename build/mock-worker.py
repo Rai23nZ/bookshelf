@@ -23,6 +23,17 @@ ALLOWED_ORIGINS = {'http://localhost:8743', 'http://127.0.0.1:8743'}
 CODE_RE = re.compile(r'^[A-Za-z0-9_-]+$')
 
 META_TIMEOUT = 5
+META_UA = 'Mozilla/5.0 (compatible; bookshelf/1.0; +https://github.com/Rai23nZ/bookshelf)'
+# Mirrors IMG_HOSTS / MAX_IMG in cloudflare-worker/sync-worker.js.
+IMG_HOSTS = {
+    'i.gr-assets.com',
+    'images.gr-assets.com',
+    's.gr-assets.com',
+    'covers.openlibrary.org',
+    'books.google.com',
+    'books.googleusercontent.com',
+}
+MAX_IMG = 8 * 1024 * 1024
 GOOGLE_BOOKS_KEY = os.environ.get('GOOGLE_BOOKS_KEY', '')
 META_CACHE = {}
 POOL = ThreadPoolExecutor(max_workers=6)
@@ -48,9 +59,11 @@ def kv_key(code):
 def _get_json(url):
     req = urllib.request.Request(url, headers={
         'accept': 'application/json',
-        # Goodreads answers some datacentre clients with an error page unless a
-        # normal browser UA is present.
-        'user-agent': 'Mozilla/5.0 (compatible; bookshelf-dev/1.0)',
+        # Goodreads sits behind CloudFront, which answers a UA-less request
+        # with a 403 error page. Cloudflare's fetch() sends no UA by default,
+        # so the worker sets the same one — that mismatch is exactly why this
+        # worked locally and failed in production.
+        'user-agent': META_UA,
     })
     with urllib.request.urlopen(req, timeout=META_TIMEOUT) as res:
         return json.loads(res.read().decode('utf-8', 'replace'))
@@ -272,12 +285,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _meta(self, parsed):
+        params = urllib.parse.parse_qs(parsed.query)
+        get = lambda k: (params.get(k) or [''])[0].strip()
+
+        # Unauthenticated on purpose: an <img> cannot send x-sync-code. Kept
+        # narrow by the host allowlist instead. Mirrors handleImage() in the
+        # worker — keep the two in step.
+        if parsed.path == '/meta/img':
+            return self._meta_img(get('u'))
+
         # Format check only, never a KV lookup — a device that has a code but
         # has never uploaded must still be able to search.
         if not read_code(self):
             return self._json({'error': 'missing or malformed sync code'}, 400)
-        params = urllib.parse.parse_qs(parsed.query)
-        get = lambda k: (params.get(k) or [''])[0].strip()
 
         if parsed.path == '/meta/search':
             q = get('q')
@@ -313,6 +333,36 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._json(found)
 
         return self._json({'error': 'not found'}, 404)
+
+    def _meta_img(self, src):
+        try:
+            target = urllib.parse.urlparse(src)
+        except Exception:
+            return self._json({'error': 'bad or missing u parameter'}, 400)
+        if target.scheme != 'https' or target.hostname not in IMG_HOSTS:
+            return self._json({'error': 'host not allowed'}, 403)
+        try:
+            req = urllib.request.Request(src, headers={'user-agent': META_UA})
+            with urllib.request.urlopen(req, timeout=15) as res:
+                ctype = res.headers.get('content-type') or ''
+                if not ctype.startswith('image/'):
+                    return self._json({'error': 'not an image'}, 415)
+                body = res.read(MAX_IMG + 1)
+        except urllib.error.HTTPError as e:
+            return self._json({'error': 'upstream %d' % e.code}, 404 if e.code == 404 else 502)
+        except Exception:
+            return self._json({'error': 'upstream unreachable'}, 502)
+        if len(body) > MAX_IMG:
+            return self._json({'error': 'image too large'}, 413)
+
+        origin = self.headers.get('origin') or ''
+        self.send_response(200)
+        self.send_header('content-type', ctype)
+        self.send_header('content-length', str(len(body)))
+        self.send_header('cache-control', 'public, max-age=31536000, immutable')
+        self._cors(origin)
+        self.end_headers()
+        self.wfile.write(body)
 
     def do_PUT(self):
         code = read_code(self)

@@ -1435,7 +1435,12 @@ class Component extends DCLogic {
         if (/(^|\.)gr-assets\.com\//.test(resolved)) cands.unshift(resolved);
         else cands.push(resolved);
       }
-      url = cands[this.stage[b.id] || 0] || '';
+      // Everything goes through the Worker, with the direct URL appended as a
+      // last resort: on an unfiltered network a Worker outage then still shows
+      // covers instead of turning the whole shelf into placeholders.
+      const chain = cands.map(u => this.proxiedCover(u));
+      if (resolved) chain.push(resolved);
+      url = chain[this.stage[b.id] || 0] || '';
       hasCover = !!url;
     }
     const short = b.title.length > 42 ? b.title.slice(0, 40).trim() + '…' : b.title;
@@ -1480,6 +1485,21 @@ class Component extends DCLogic {
     return fetch(syncUrl().replace(/\/+$/, '') + path + '?' + qs, {
       headers: { 'x-sync-code': code }, signal
     }).then(r => (r.ok ? r.json() : null)).catch(() => null);
+  }
+
+  // Metadata rides the Worker, but cover BYTES are fetched by the browser
+  // straight from the CDN — and that is the one request a mobile carrier can
+  // block on its own. The symptom is nasty because it looks like nothing is
+  // wrong: search returns Goodreads results, and every one of them renders as
+  // a placeholder. Routing images through the Worker too removes it.
+  //
+  // Only the rendered src is rewritten. this.covers[id] keeps the upstream URL
+  // as the canonical value, so changing the Worker address later does not
+  // invalidate every stored cover, and deco()'s gr-assets ranking still works.
+  proxiedCover(url) {
+    // blob: (offline cache) and anything non-https passes straight through.
+    if (!url || !/^https:\/\//i.test(url)) return url;
+    return syncUrl().replace(/\/+$/, '') + '/meta/img?u=' + encodeURIComponent(url);
   }
 
   // The unproxied fallback, in the same normalised shape the proxy returns.
@@ -1769,12 +1789,15 @@ class Component extends DCLogic {
       // reached us with no cover at all.
       const coverUrl = r.coverUrl
         || (r.isbn13 ? 'https://covers.openlibrary.org/b/isbn/' + r.isbn13 + '-M.jpg?default=false' : '');
+      // Rendered through the Worker; the upstream URL is what gets stored on
+      // the book below, so it stays independent of the Worker address.
+      const coverSrc = this.proxiedCover(coverUrl);
       const short = title.length > 42 ? title.slice(0, 40).trim() + '…' : title;
       const authorShort = author.length > 24 ? author.split(',')[0] : author;
       return {
         title, short, authorShort,
         sourceLabel: SOURCE_LABELS[r.source] || '',
-        ph: this.phFor(title), hasCover: !!coverUrl, coverUrl,
+        ph: this.phFor(title), hasCover: !!coverUrl, coverUrl: coverSrc,
         add: () => {
           const nb = {
             id: Date.now() + i, title, author, series: '',

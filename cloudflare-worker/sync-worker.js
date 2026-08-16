@@ -310,8 +310,71 @@ async function cached(env, key, ttl, produce) {
   return value;
 }
 
+// Cover images are the one part of this app a network can break on its own:
+// metadata rides this Worker and gets through, while the browser fetches the
+// image bytes straight from the CDN. A mobile carrier blocking i.gr-assets.com
+// therefore leaves a shelf full of placeholders while search looks perfectly
+// healthy. Re-serving those bytes from here removes the whole class of failure.
+//
+// Deliberately NOT authenticated: an <img> tag cannot send a custom header, so
+// x-sync-code is impossible here, and moving the code into the query string
+// would defeat the reason it lives in a header at all — it would land in
+// server logs, browser history and Referer. The route is kept narrow instead:
+// https only, a fixed list of book-cover CDNs, an image content-type and a
+// size ceiling. That makes it useless as a general relay.
+const IMG_HOSTS = new Set([
+  'i.gr-assets.com',
+  'images.gr-assets.com',
+  's.gr-assets.com',
+  'covers.openlibrary.org',
+  'books.google.com',
+  'books.googleusercontent.com'
+]);
+const MAX_IMG = 8 * 1024 * 1024;
+
+async function handleImage(origin, url) {
+  let target;
+  try { target = new URL(url.searchParams.get('u') || ''); }
+  catch (e) { return json({ error: 'bad or missing u parameter' }, 400, origin); }
+  if (target.protocol !== 'https:' || !IMG_HOSTS.has(target.hostname)) {
+    return json({ error: 'host not allowed' }, 403, origin);
+  }
+
+  let res;
+  try {
+    res = await fetch(target.toString(), {
+      headers: { 'user-agent': META_UA },
+      // Longer than META_TIMEOUT_MS: this budget covers streaming the body,
+      // not just the response head.
+      signal: AbortSignal.timeout(15000)
+    });
+  } catch (e) {
+    return json({ error: 'upstream unreachable' }, 502, origin);
+  }
+  if (!res.ok) return json({ error: 'upstream ' + res.status }, res.status === 404 ? 404 : 502, origin);
+
+  const type = res.headers.get('content-type') || '';
+  if (!type.startsWith('image/')) return json({ error: 'not an image' }, 415, origin);
+  const len = +(res.headers.get('content-length') || 0);
+  if (len > MAX_IMG) return json({ error: 'image too large' }, 413, origin);
+
+  // Streamed, not buffered. Cover URLs embed a content hash, so they are
+  // immutable and can be cached hard at both the edge and the browser.
+  return new Response(res.body, {
+    headers: {
+      'content-type': type,
+      'cache-control': 'public, max-age=31536000, immutable',
+      ...corsHeaders(origin)
+    }
+  });
+}
+
 async function handleMeta(request, env, origin, path) {
   if (request.method !== 'GET') return json({ error: 'method not allowed' }, 405, origin);
+
+  // Before the credential check, for the reason spelled out above.
+  if (path === '/meta/img') return handleImage(origin, new URL(request.url));
+
   // Same credential as sync, format-checked only — deliberately NOT looked up
   // in KV, so a device that has a code but has never uploaded can still
   // search. Requiring the header at all is what forces a CORS preflight,
