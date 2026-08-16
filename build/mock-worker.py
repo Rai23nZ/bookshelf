@@ -94,6 +94,9 @@ def from_goodreads(q):
             'isbn': '', 'isbn13': '',
             'pages': d.get('numPages') or None,
             'avgRating': float(d['avgRating']) if d.get('avgRating') else None,
+            # Ranks cover candidates: a summary edition has tens of ratings
+            # where the book it summarises has tens of thousands.
+            'ratingsCount': d.get('ratingsCount') or 0,
             'coverUrl': upgrade_goodreads_cover(d.get('imageUrl')),
             'source': 'goodreads',
         })
@@ -154,7 +157,9 @@ NON_WORD_RE = re.compile(r'[^\w]+', re.UNICODE)
 
 
 def norm_text(s):
-    return NON_WORD_RE.sub(' ', str(s or '').lower()).strip()
+    # yo/ye folded: Goodreads and the shelf disagree about it constantly
+    # ("Мария Семёнова" vs "Мария Семенова").
+    return NON_WORD_RE.sub(' ', str(s or '').lower().replace('ё', 'е')).strip()
 
 
 def core_title(t):
@@ -202,10 +207,45 @@ def merge_results(lists):
             for field in ('isbn', 'isbn13', 'coverUrl', 'author'):
                 if not seen.get(field) and r.get(field):
                     seen[field] = r[field]
-            for field in ('pages', 'avgRating'):
+            for field in ('pages', 'avgRating', 'ratingsCount'):
                 if seen.get(field) is None and r.get(field) is not None:
                     seen[field] = r[field]
     return [by_key[k] for k in order]
+
+
+def author_matches(want, got):
+    """Surname-level and deliberately loose: editions credit authors
+    inconsistently, but this still separates a summary's packager
+    ("Short Reads", "BookRags") from the real author."""
+    w = [x for x in norm_text(str(want or '').split(',')[0]).split(' ') if x]
+    g = norm_text(got)
+    if not w or not g:
+        return False
+    surname = w[-1]
+    return len(surname) >= 3 and surname in g.split(' ')
+
+
+def cover_providers(title, author, isbn):
+    """Goodreads gets the bare title: its auto_complete matches on TITLES and
+    summary editions are titled "<Title> by <Author>", so including the author
+    ranks them above the book. Open Library and Google Books do not have that
+    failure mode and need the author to disambiguate. Mirrors coverProviders()
+    in the worker."""
+    first_author = str(author or '').split(',')[0].strip()
+    wide = isbn or (title + ((' ' + first_author) if first_author else '')).strip()
+    jobs = [
+        POOL.submit(from_goodreads, isbn or title),
+        POOL.submit(from_google_books, wide),
+        POOL.submit(from_open_library, wide),
+    ]
+    lists = []
+    for f in jobs:
+        try:
+            lists.append(f.result(timeout=META_TIMEOUT + 2))
+        except Exception as e:
+            sys.stderr.write('[worker-mock] cover provider failed: %s\n' % e)
+            lists.append([])
+    return merge_results(lists)
 
 
 def search_providers(q):
@@ -319,10 +359,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._json({'error': 'nothing to look up'}, 400)
 
             def resolve():
-                results, _ = search_providers(q)
+                results = cover_providers(title, author, isbn)
                 # An isbn already identifies the edition; a title search does
                 # not, and has to be checked against what came back.
                 ok = results if isbn else [r for r in results if title_matches(title, r['title'])]
+                # Summary editions clear the title check ("Make Me: by Lee
+                # Child a Jack Reacher Novel" truncates to "make me") but are
+                # credited to their packager and carry a rounding error of the
+                # real ratings. A preference, not a filter, so an author spelt
+                # differently still yields a cover rather than none.
+                ok.sort(key=lambda r: (author_matches(author, r['author']), r.get('ratingsCount') or 0),
+                        reverse=True)
                 hit = next((r for r in ok if r.get('coverUrl')), None)
                 return {'coverUrl': hit['coverUrl'], 'source': hit['source']} if hit else {}
 

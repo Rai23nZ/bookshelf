@@ -663,6 +663,11 @@ function syncUrl() {
 // The tab the back button unwinds to before letting the app close.
 const ROOT_SCREEN = 'library';
 
+// Bump to force stored Goodreads cover URLs to be resolved again — see
+// migrateCovers(). 2: the cover lookup used to hand Goodreads the author too,
+// which ranked "<Title> by <Author>" summary editions above the real book.
+const COVER_EPOCH = 2;
+
 // ── Reading streak ────────────────────────────────────────────────────────
 // A day "counts" when reading progress was recorded on it, tracked as a list
 // of local calendar dates in state.readDays.
@@ -852,6 +857,9 @@ class Component extends DCLogic {
   covers = {};
   stage = {};
   navStack = [];
+  // Scroll offset a back navigation should land on, consumed once by
+  // resetScrollOnScreenChange. 0 means "new screen, start at the top".
+  pendingScroll = 0;
   requested = new Set();
   queue = [];
   inflight = 0;
@@ -884,7 +892,13 @@ class Component extends DCLogic {
         this.inflight--;
         this.pump();
       };
-      const timer = setTimeout(() => { ac.abort(); release(); }, 6000);
+      // Comfortably longer than the Worker's own per-provider budget (5s): it
+      // fans out to three providers concurrently, so one of them hanging still
+      // costs ~5s before the other two are returned. At the previous 6s the
+      // margin was a single second, and an Open Library outage was enough to
+      // make every lookup abort client-side while Goodreads had already
+      // answered — covers silently stopped resolving for the whole session.
+      const timer = setTimeout(() => { ac.abort(); release(); }, 9000);
       const accept = url => {
         if (!url) return;
         this.covers[b.id] = url;
@@ -923,6 +937,33 @@ class Component extends DCLogic {
   get storeKey() { return 'bookshelf.v1'; }
   get coverKey() { return 'bookshelf.covers.v1'; }
   get stageKey() { return 'bookshelf.stage.v1'; }
+  get coverEpochKey() { return 'bookshelf.coverepoch.v1'; }
+
+  // Covers resolved before the ranking fix can be a summary edition's jacket:
+  // the lookup took Goodreads' first title match, and Goodreads ranks
+  // "<Title> by <Author>" summary editions above the book itself. Bumping
+  // COVER_EPOCH discards those once so they are looked up again.
+  //
+  // Only Goodreads-sourced URLs are dropped — Open Library ones were never
+  // affected, and re-fetching every cover would cost the user megabytes for
+  // nothing. The IndexedDB image blob has to go with each one, because deco()
+  // prefers an offline blob over anything a fresh lookup returns.
+  async migrateCovers() {
+    let stored = 0;
+    try { stored = +(localStorage.getItem(this.coverEpochKey) || 0); } catch (e) { return; }
+    if (stored === COVER_EPOCH) return;
+
+    const suspect = Object.keys(this.covers).filter(id => /gr-assets\.com/.test(this.covers[id]));
+    suspect.forEach(id => { delete this.covers[id]; delete this.stage[id]; });
+    this.saveCovers();
+    try { localStorage.setItem(this.coverEpochKey, String(COVER_EPOCH)); } catch (e) { /* blocked */ }
+
+    // Awaited, not fired and forgotten: loadOfflineCovers() reads the whole
+    // store immediately after this and would otherwise put the stale images
+    // straight back into offlineCovers, where deco() prefers them.
+    if (!window.bookshelfDB) return;
+    await Promise.all(suspect.map(id => window.bookshelfDB.deleteCover(+id).catch(() => {})));
+  }
 
   loadCovers() {
     try {
@@ -1228,7 +1269,17 @@ class Component extends DCLogic {
     if (scr === this.lastScreen) return;
     this.lastScreen = scr;
     const el = this.getScroller();
-    if (el) el.scrollTop = 0;
+    if (!el) return;
+    // Top for a new screen; the position it was left at when this is a back
+    // navigation. Scrolling a long list, opening a book and pressing back used
+    // to dump the reader at the top of the list with their place lost.
+    const target = this.pendingScroll || 0;
+    this.pendingScroll = 0;
+    el.scrollTop = target;
+    // Covers finish loading after this runs and can grow the content, so the
+    // first assignment may have been clamped against a shorter list. Re-apply
+    // once the frame has settled.
+    if (target) requestAnimationFrame(() => { if (el.scrollTop < target) el.scrollTop = target; });
   }
 
   getScroller() {
@@ -1242,7 +1293,7 @@ class Component extends DCLogic {
 
   componentDidMount() {
     this.loadCovers();
-    this.loadOfflineCovers();
+    this.migrateCovers().catch(() => {}).then(() => this.loadOfflineCovers());
     const code = this.loadSyncCode();
     if (code) this.setState({ syncCode: code });
     // syncStatus itself is deliberately left empty here — renderVals derives
@@ -1318,16 +1369,29 @@ class Component extends DCLogic {
     return { screen: s.screen, selId: s.selId, listKey: s.listKey, railKey: s.railKey, shelf: s.shelf, addTab: s.addTab };
   }
 
+  // Stack entries are { patch, scrollTop }, not bare state patches: the patch
+  // is what setState replays, and scrollTop is where the list was left. They
+  // travel together because losing the pairing is what the whole navStack /
+  // history invariant exists to prevent.
+  navEntry() {
+    const el = this.getScroller();
+    return { patch: this.navSnapshot(), scrollTop: el ? el.scrollTop : 0 };
+  }
+
   pushScreen(patch) {
-    this.navStack.push(this.navSnapshot());
+    this.navStack.push(this.navEntry());
     try { window.history.pushState({ bookshelfDepth: this.navStack.length }, ''); } catch (e) { /* History API unavailable */ }
     this.setState(patch);
   }
 
   popNav() {
     const prev = this.navStack.pop();
-    if (prev) this.setState(prev);
-    // else: already at the root — let the real back navigation proceed.
+    if (!prev) return; // already at the root — let the real back navigation proceed.
+    // Handed to resetScrollOnScreenChange, which runs after the DOM has been
+    // rebuilt for the restored screen; setting scrollTop here would land on
+    // the outgoing markup and be thrown away.
+    this.pendingScroll = prev.scrollTop || 0;
+    this.setState(prev.patch);
   }
 
   goBack() {
@@ -1352,16 +1416,24 @@ class Component extends DCLogic {
   goTab(id) {
     if (this.state.screen === id) return;
 
+    // Entries are { patch, scrollTop } (see navEntry) — rewrite the patch and
+    // carry the offset, so returning to the shelf lands where it was left
+    // rather than at the top.
+    const rootEntry = () => {
+      const base = this.navStack[0];
+      return { patch: { ...base.patch, screen: ROOT_SCREEN }, scrollTop: base.scrollTop };
+    };
+
     if (id === ROOT_SCREEN) {
       if (!this.navStack.length) { this.setState({ screen: id }); return; }
-      this.navStack = [{ ...this.navStack[0], screen: ROOT_SCREEN }];
+      this.navStack = [rootEntry()];
       this.goBack();
       return;
     }
 
     if (!this.navStack.length) { this.pushScreen({ screen: id }); return; }
     // Already have an entry to come back to: reuse it rather than stacking.
-    this.navStack = [{ ...this.navStack[0], screen: ROOT_SCREEN }];
+    this.navStack = [rootEntry()];
     this.setState({ screen: id });
   }
 

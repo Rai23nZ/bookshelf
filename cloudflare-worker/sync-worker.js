@@ -109,7 +109,10 @@ const COVER_TTL = 30 * 24 * 60 * 60; // cover URLs are effectively immutable
 // being masked by up to a month of stale answers produced by the old code.
 // v2: added the User-Agent below, without which Goodreads returned nothing and
 // every cached search held Open Library results only.
-const META_CACHE_VERSION = 'v2';
+// v3: cover lookup stopped putting the author in the Goodreads query and
+// started ranking by author match then popularity, so entries cached under v2
+// can hold a summary edition's jacket.
+const META_CACHE_VERSION = 'v3';
 
 // Cloudflare's fetch() sends NO User-Agent unless one is set, and Goodreads
 // sits behind CloudFront, which answers a UA-less request with a 403 error
@@ -157,6 +160,9 @@ async function fromGoodreads(q) {
     isbn: '', isbn13: '',
     pages: d.numPages || null,
     avgRating: d.avgRating ? Number(d.avgRating) : null,
+    // Carried purely to rank cover candidates: a summary edition has tens of
+    // ratings where the book it summarises has tens of thousands.
+    ratingsCount: d.ratingsCount || 0,
     coverUrl: upgradeGoodreadsCover(d.imageUrl),
     source: 'goodreads'
   })).filter(x => x.title);
@@ -207,7 +213,10 @@ async function fromOpenLibrary(q) {
 }
 
 function normText(s) {
-  return String(s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  // ё/е is folded because Goodreads and the shelf disagree about it constantly
+  // ("Мария Семёнова" vs "Мария Семенова"), and that alone would fail an
+  // otherwise exact author match.
+  return String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
 
 function coreTitle(t) {
@@ -264,7 +273,7 @@ function mergeResults(lists) {
       for (const field of ['isbn', 'isbn13', 'coverUrl', 'author']) {
         if (!seen[field] && r[field]) seen[field] = r[field];
       }
-      for (const field of ['pages', 'avgRating']) {
+      for (const field of ['pages', 'avgRating', 'ratingsCount']) {
         if (seen[field] == null && r[field] != null) seen[field] = r[field];
       }
     }
@@ -276,6 +285,41 @@ function mergeResults(lists) {
 // /meta/search. Diagnosing "why is everything tagged Open Library?" otherwise
 // means guessing from the outside, since a dead provider looks exactly like a
 // provider with no matches.
+// Surname-level, deliberately loose. Editions credit authors inconsistently
+// ("Lee Child" vs "Child, Lee" vs "Lee Child (Author)"), so anything stricter
+// rejects the right book; anything looser stops telling a summary's packager
+// ("Short Reads", "BookRags", "SuperSummary") apart from the real author,
+// which is the whole point of the check.
+function authorMatches(want, got) {
+  const w = normText(String(want || '').split(',')[0]).split(' ').filter(Boolean);
+  const g = normText(got);
+  if (!w.length || !g) return false;
+  const surname = w[w.length - 1];
+  return surname.length >= 3 && g.split(' ').includes(surname);
+}
+
+// Cover lookup asks the providers differently from a free-text search.
+//
+// Goodreads' auto_complete matches on TITLES, and summary editions are titled
+// "<Title> by <Author>" — so putting the author in the query ranks the spam
+// above the book. Measured: "Station Eleven Emily St. John Mandel" returns
+// five summaries and not the novel at all, while "Station Eleven" alone
+// returns it first with 643k ratings. Goodreads therefore gets the bare title
+// and the author is verified on the results instead.
+//
+// Open Library and Google Books do not have that failure mode and genuinely
+// need the author to disambiguate, so they keep the combined query.
+async function coverProviders(title, author, isbn, env) {
+  const firstAuthor = String(author || '').split(',')[0].trim();
+  const wide = isbn || (title + (firstAuthor ? ' ' + firstAuthor : '')).trim();
+  const settled = await Promise.allSettled([
+    fromGoodreads(isbn || title),
+    fromGoogleBooks(wide, env.GOOGLE_BOOKS_KEY),
+    fromOpenLibrary(wide)
+  ]);
+  return mergeResults(settled.map(r => (r.status === 'fulfilled' ? r.value : [])));
+}
+
 async function searchProviders(q, env) {
   const jobs = [
     ['goodreads', () => fromGoodreads(q)],
@@ -407,10 +451,18 @@ async function handleMeta(request, env, origin, path) {
     // A miss is cached too: a book no provider has must not re-run three
     // lookups on every single session.
     const found = await cached(env, key, COVER_TTL, async () => {
-      const { results } = await searchProviders(q, env);
+      const results = await coverProviders(title, author, isbn, env);
       // An isbn already identifies the edition, so anything it returns is the
       // right book. A title search does not, and has to be checked.
       const ok = isbn ? results : results.filter(r => titleMatches(title, r.title));
+      // Summary editions clear the title check — "Make Me: by Lee Child a Jack
+      // Reacher Novel" truncates to exactly "make me" — but they are credited
+      // to their packager and carry a rounding error of the real book's
+      // ratings. Rank on both, as a preference rather than a filter, so an
+      // author spelt differently still yields a cover instead of none.
+      ok.sort((a, b) =>
+        (authorMatches(author, b.author) ? 1 : 0) - (authorMatches(author, a.author) ? 1 : 0)
+        || (b.ratingsCount || 0) - (a.ratingsCount || 0));
       const withCover = ok.find(r => r.coverUrl);
       return withCover ? { coverUrl: withCover.coverUrl, source: withCover.source } : {};
     });
