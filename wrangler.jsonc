@@ -1,0 +1,34 @@
+{
+  // Config for the SITE worker (bookshelf.<subdomain>.workers.dev), the one
+  // Workers Builds deploys from Git with `npx wrangler deploy`. Without this
+  // file that command has nothing to act on and every build fails, which is
+  // why connecting the repo alone did not replace the manual pwa/ upload.
+  //
+  // The name must match the existing Worker exactly, or a deploy creates a
+  // SECOND worker on a new subdomain and the live site keeps serving the old
+  // upload.
+  "name": "bookshelf",
+  "compatibility_date": "2026-08-16",
+
+  // Assets-only: there is no server-side code on this worker at all. The whole
+  // app is pwa/index.html, a self-contained bundle, so no "main" entry point
+  // is declared and every request is answered straight from the directory.
+  //
+  // Defaults are deliberately left alone. html_handling already serves
+  // index.html for "/", and not_found_handling stays "none" because the app
+  // never puts a path in the URL — pushScreen() calls history.pushState()
+  // without a url argument, and the manifest's start_url and scope are both
+  // "./" — so there are no deep links that would need rewriting to index.html.
+  //
+  // pwa/_headers is picked up from here as well: it is what keeps sw.js and
+  // index.html on Cache-Control: no-cache so a deploy actually reaches people.
+  "assets": {
+    "directory": "./pwa"
+  }
+
+  // Deliberately NOT here: the sync + metadata worker
+  // (cloudflare-worker/sync-worker.js, deployed as `bookshelf-sync`). It is a
+  // separate Worker with its own KV binding and its own GOOGLE_BOOKS_KEY
+  // secret. Folding it in would mean every shelf tweak redeploys the API, and
+  // one bad build would take out both the site and cloud sync at once.
+}
