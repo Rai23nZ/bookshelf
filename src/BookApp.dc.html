@@ -86,7 +86,12 @@ input[type=range]{accent-color:var(--color-accent)}
 <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-700);margin-bottom:4px">{{ todayLabel }}</div>
 <h1 style="font-family:var(--font-heading);font-size:30px;line-height:1.05;margin:0">Your shelf</h1>
 </div>
-<button onClick="{{ openStats }}" title="Stats" style="width:44px;height:44px;border-radius:999px;border:0;background:var(--color-accent-2-200);display:grid;place-items:center;font-family:var(--font-heading);font-size:16px;color:var(--color-accent-2-800);cursor:pointer;padding:0;flex:none">AV</button>
+<button onClick="{{ openStats }}" title="{{ avatarTitle }}" aria-label="{{ avatarTitle }}" style="position:relative;width:46px;height:46px;border-radius:999px;border:0;background:conic-gradient({{ tierRing }} {{ goalDeg }}, rgba(255,255,255,.12) 0);display:grid;place-items:center;cursor:pointer;padding:0;flex:none;box-shadow:{{ tierGlow }}">
+<div style="width:37px;height:37px;border-radius:999px;background:{{ tierFill }};display:grid;place-items:center;font-family:var(--font-heading);font-size:15px;line-height:1;color:{{ tierInk }}">AV</div>
+<sc-if value="{{ hasStreakBadge }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;padding:0 4px;box-sizing:border-box;border-radius:999px;background:{{ streakBadgeBg }};color:{{ streakBadgeInk }};border:2px solid var(--color-bg);font-family:var(--font-body);font-weight:700;font-size:9.5px;line-height:14px;text-align:center">{{ streak }}</div>
+</sc-if>
+</button>
 </div>
 
 <div style="display:flex;align-items:center;gap:10px;height:46px;padding:0 16px;border-radius:999px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-300);margin-bottom:14px">
@@ -390,10 +395,10 @@ input[type=range]{accent-color:var(--color-accent)}
 
 <sc-if value="{{ isStats }}" hint-placeholder-val="{{ false }}">
 <div style="padding:20px 18px 0">
-<h1 style="font-family:var(--font-heading);font-size:28px;margin:0 0 18px">2026 so far</h1>
-<div style="border-radius:28px;background:var(--color-accent-2-800);color:var(--color-neutral-100);padding:20px;display:flex;gap:18px;align-items:center;margin-bottom:14px;box-shadow:var(--shadow-md)">
-<div style="width:104px;height:104px;flex:none;border-radius:999px;background:conic-gradient(var(--color-accent-300) {{ goalDeg }}, rgba(255,255,255,.16) 0);display:grid;place-items:center">
-<div style="width:78px;height:78px;border-radius:999px;background:var(--color-accent-2-800);display:grid;place-items:center;text-align:center">
+<h1 style="font-family:var(--font-heading);font-size:28px;margin:0 0 18px">{{ statsYear }} so far</h1>
+<div style="border-radius:28px;background:{{ tierFill }};color:{{ tierInk }};padding:20px;display:flex;gap:18px;align-items:center;margin-bottom:14px;box-shadow:var(--shadow-md)">
+<div style="width:104px;height:104px;flex:none;border-radius:999px;background:conic-gradient({{ tierRing }} {{ goalDeg }}, rgba(255,255,255,.16) 0);display:grid;place-items:center">
+<div style="width:78px;height:78px;border-radius:999px;background:{{ tierCore }};display:grid;place-items:center;text-align:center">
 <div>
 <div style="font-family:var(--font-heading);font-size:24px;line-height:1">{{ yearCount }}</div>
 <div style="font-size:9.5px;opacity:.7;letter-spacing:.1em">OF {{ goal }}</div>
@@ -403,21 +408,62 @@ input[type=range]{accent-color:var(--color-accent)}
 <div style="flex:1;min-width:0">
 <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.7;margin-bottom:6px">Yearly goal</div>
 <div style="font-family:var(--font-heading);font-size:18px;line-height:1.15;margin-bottom:8px">{{ goalHeadline }}</div>
-<div style="display:flex;gap:8px">
+<div style="display:flex;gap:8px;align-items:center">
 <button onClick="{{ goalDown }}" style="width:34px;height:34px;border-radius:999px;border:1px solid rgba(255,255,255,.3);background:transparent;color:inherit;font-size:17px;cursor:pointer">−</button>
 <button onClick="{{ goalUp }}" style="width:34px;height:34px;border-radius:999px;border:1px solid rgba(255,255,255,.3);background:transparent;color:inherit;font-size:17px;cursor:pointer">+</button>
+<div style="margin-left:auto;padding:0 11px;height:26px;border-radius:999px;background:rgba(255,255,255,.16);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;display:grid;place-items:center;white-space:nowrap">{{ tierName }}</div>
 </div>
 </div>
 </div>
 
-<div style="border-radius:24px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);padding:16px;margin-bottom:14px;display:flex;gap:16px;align-items:center">
-<div style="width:64px;height:64px;flex:none;border-radius:999px;background:var(--color-accent-100);border:1px solid var(--color-accent-200);display:grid;place-items:center">
-<div style="font-family:var(--font-heading);font-size:24px;line-height:1;color:var(--color-accent-800)">{{ streak }}</div>
+<div style="border-radius:24px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);padding:16px;margin-bottom:14px">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Reading streak</div>
+<sc-if value="{{ atPersonalBest }}" hint-placeholder-val="{{ true }}">
+<div style="padding:0 8px;height:19px;border-radius:999px;background:var(--color-accent);color:#2b2724;font-size:9px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;display:grid;place-items:center">Personal best</div>
+</sc-if>
 </div>
-<div style="flex:1;min-width:0">
-<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:4px">Reading streak</div>
-<div style="font-family:var(--font-heading);font-size:17px;line-height:1.15;margin-bottom:5px">{{ streakLabel }}</div>
-<div style="font-size:11.5px;line-height:1.5;color:var(--color-neutral-600)">{{ streakBlurb }}</div>
+<div style="display:flex;gap:10px">
+<div style="flex:1;min-width:0;border-radius:18px;background:{{ streakNowBg }};border:1px solid {{ streakNowBd }};padding:12px 13px">
+<div style="display:flex;align-items:baseline;gap:5px">
+<div style="font-family:var(--font-heading);font-size:27px;line-height:1;color:{{ streakNowInk }}">{{ streak }}</div>
+<div style="font-size:11px;color:var(--color-neutral-600)">{{ streakUnit }}</div>
+</div>
+<div style="font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--color-neutral-600);margin-top:7px">Current run</div>
+</div>
+<div style="flex:1;min-width:0;border-radius:18px;background:var(--color-neutral-200);border:1px solid var(--color-neutral-300);padding:12px 13px">
+<div style="display:flex;align-items:baseline;gap:5px">
+<div style="font-family:var(--font-heading);font-size:27px;line-height:1">{{ longestStreak }}</div>
+<div style="font-size:11px;color:var(--color-neutral-600)">{{ longestUnit }}</div>
+</div>
+<div style="font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--color-neutral-600);margin-top:7px">Longest in {{ statsYear }}</div>
+</div>
+</div>
+<div style="font-size:11.5px;line-height:1.5;color:var(--color-neutral-600);margin-top:11px">{{ streakBlurb }}</div>
+<sc-if value="{{ hasLongestRange }}" hint-placeholder-val="{{ true }}">
+<div style="font-size:10.5px;line-height:1.5;color:var(--color-neutral-500);margin-top:2px">Best run: {{ longestRange }}</div>
+</sc-if>
+</div>
+
+<div style="border-radius:24px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);padding:16px;margin-bottom:14px">
+<div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:13px">
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Achievements</div>
+<div style="font-size:10.5px;color:var(--color-neutral-500);white-space:nowrap">{{ badgeSummary }}</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">
+<sc-for list="{{ badges }}" as="ab" hint-placeholder-count="8">
+<div style="border-radius:16px;background:{{ ab.bg }};border:1px solid {{ ab.bd }};padding:11px 11px 10px;min-width:0">
+<div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+<div style="width:24px;height:24px;flex:none;border-radius:999px;background:{{ ab.iconBg }};color:{{ ab.iconInk }};display:grid;place-items:center">{{ ab.icon }}</div>
+<div style="font-family:var(--font-heading);font-size:12.5px;line-height:1.1;color:{{ ab.ink }};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ ab.name }}</div>
+</div>
+<div style="font-size:10.5px;line-height:1.35;color:var(--color-neutral-600);min-height:28px">{{ ab.hint }}</div>
+<div style="display:flex;align-items:center;gap:7px;margin-top:7px">
+<div style="flex:1;height:4px;border-radius:999px;background:var(--color-neutral-300);overflow:hidden"><div style="height:100%;width:{{ ab.pct }};border-radius:999px;background:{{ ab.barBg }}"></div></div>
+<div style="font-size:9px;color:var(--color-neutral-500);white-space:nowrap">{{ ab.progressLabel }}</div>
+</div>
+</div>
+</sc-for>
 </div>
 </div>
 
@@ -532,7 +578,7 @@ Download CSV for Goodreads
 </sc-for>
 
 <sc-if value="{{ hasAddQuery }}" hint-placeholder-val="{{ false }}">
-<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin:18px 0 8px">From Open Library</div>
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin:18px 0 8px">Found online</div>
 <sc-if value="{{ addExternalLoading }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;color:var(--color-neutral-600);padding:6px 0">Searching…</div></sc-if>
 <sc-for list="{{ addExternalResults }}" as="b" hint-placeholder-count="3">
 <div style="display:flex;align-items:center;gap:13px;padding:10px 0;border-bottom:1px solid var(--color-neutral-200)">
@@ -542,12 +588,13 @@ Download CSV for Goodreads
 </div>
 <div style="flex:1;min-width:0">
 <div style="font-size:13.5px;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ b.title }}</div>
-<div style="font-size:11.5px;color:var(--color-neutral-600)">{{ b.authorShort }}</div>
+<div style="font-size:11.5px;color:var(--color-neutral-600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ b.authorShort }}</div>
+<div style="font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-500);margin-top:2px">{{ b.sourceLabel }}</div>
 </div>
 <button onClick="{{ b.add }}" style="height:34px;padding:0 14px;border-radius:999px;border:0;background:var(--color-accent-200);color:var(--color-accent-800);font-family:var(--font-body);font-weight:700;font-size:12px;cursor:pointer;flex:none">Add</button>
 </div>
 </sc-for>
-<sc-if value="{{ addExternalEmpty }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;color:var(--color-neutral-600);padding:6px 0">No matches on Open Library.</div></sc-if>
+<sc-if value="{{ addExternalEmpty }}" hint-placeholder-val="{{ false }}"><div style="font-size:12.5px;color:var(--color-neutral-600);padding:6px 0">Nothing found online.</div></sc-if>
 </sc-if>
 </div>
 </sc-if>
@@ -650,6 +697,118 @@ function readingStreak(days, today) {
   return n;
 }
 
+// The longest run of consecutive reading days lying inside `year`.
+//
+// A run that crosses New Year is counted only for the part inside the year:
+// the card is labelled "this calendar year", and letting a December run bleed
+// in would print a number the label does not describe. readDays is deduped
+// first — withReadDay() guards against a double entry, but a snapshot merged
+// from another device carries whatever that device had.
+function longestStreakInYear(days, year) {
+  const prefix = String(year) + '-';
+  const inYear = [...new Set(days || [])].filter(d => String(d).startsWith(prefix)).sort();
+  if (!inYear.length) return { length: 0, from: '', to: '' };
+  let best = { length: 1, from: inYear[0], to: inYear[0] };
+  let runStart = inYear[0];
+  let run = 1;
+  for (let i = 1; i < inYear.length; i++) {
+    const prev = new Date(inYear[i - 1] + 'T00:00:00');
+    prev.setDate(prev.getDate() + 1);
+    if (dayKey(prev) === inYear[i]) {
+      run++;
+    } else {
+      run = 1;
+      runStart = inYear[i];
+    }
+    if (run > best.length) best = { length: run, from: runStart, to: inYear[i] };
+  }
+  return best;
+}
+
+// ── Reader tiers ──────────────────────────────────────────────────────────
+// One ladder, driven by the app's own headline number (books finished this
+// year against the yearly goal). The avatar, the stats hero and the badge
+// grid all read from it, so they escalate together instead of each inventing
+// its own idea of how the year is going.
+//
+// `fill` dresses the avatar and the hero card, `core` is the solid colour the
+// donut hole needs to sit on that fill, `ring` draws the progress arc, `ink`
+// is text on `fill`, `glow` is the shadow that only the top tiers earn.
+const TIERS = [
+  { id: 'unopened', name: 'Unopened', at: 0,
+    fill: 'linear-gradient(150deg,#4a4540,#2b2724)', core: '#2b2724', ring: '#6c645b', ink: '#a9a09a', glow: 'none' },
+  { id: 'reader', name: 'Reader', at: 0.01,
+    fill: 'linear-gradient(150deg,#7d8c63,#4e5a38)', core: '#414b2f', ring: '#9db07e', ink: '#f0f3e8', glow: 'none' },
+  { id: 'devoted', name: 'Devoted', at: 0.25,
+    fill: 'linear-gradient(150deg,#a8934f,#6b6a34)', core: '#57562a', ring: '#c9b463', ink: '#fbf6e6', glow: 'none' },
+  { id: 'bibliophile', name: 'Bibliophile', at: 0.5,
+    fill: 'linear-gradient(150deg,#d08543,#93501d)', core: '#7a4116', ring: '#e2954c', ink: '#fff3e6', glow: '0 4px 16px rgba(208,133,67,.30)' },
+  { id: 'luminary', name: 'Luminary', at: 0.75,
+    fill: 'linear-gradient(150deg,#e0a24b,#b4631f)', core: '#95511a', ring: '#f0b45c', ink: '#fff6e8', glow: '0 5px 20px rgba(224,162,75,.42)' },
+  { id: 'laureate', name: 'Laureate', at: 1,
+    fill: 'linear-gradient(150deg,#f7d074,#c8761f)', core: '#a75f16', ring: '#ffe08f', ink: '#fffaf0', glow: '0 6px 26px rgba(247,208,116,.55)' }
+];
+
+function tierFor(done, goal) {
+  const frac = goal > 0 ? done / goal : 0;
+  let picked = TIERS[0];
+  TIERS.forEach(t => { if (frac >= t.at) picked = t; });
+  return picked;
+}
+
+// A live streak is its own signal, separate from the yearly ladder — a reader
+// can be on day 40 in a slow year. It rides the avatar as a corner badge that
+// warms up as the run gets longer.
+const STREAK_HEAT = [
+  { at: 2, bg: '#6f7f52', ink: '#f2f5ea' },
+  { at: 7, bg: '#c2913c', ink: '#2b2724' },
+  { at: 14, bg: '#d97a34', ink: '#fff6ec' },
+  { at: 30, bg: '#e2542b', ink: '#fff2ec' },
+  { at: 100, bg: '#f7d074', ink: '#5c3208' }
+];
+
+function streakHeat(n) {
+  let picked = null;
+  STREAK_HEAT.forEach(h => { if (n >= h.at) picked = h; });
+  return picked;
+}
+
+const BADGE_ICONS = {
+  book: ['M4 5.5c3 0 6 .6 8 2 2-1.4 5-2 8-2v12c-3 0-6 .6-8 2-2-1.4-5-2-8-2z'],
+  bars: ['M5 19V11M12 19V5M19 19v-6'],
+  target: ['M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17z', 'M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z'],
+  flame: ['M12 3c.6 3-1.2 4.2-2.4 5.7A6.4 6.4 0 0 0 8 12.6a4 4 0 0 0 8 0c0-1.3-.5-2.2-1-3 2 1.2 3 3 3 5a6 6 0 0 1-12 0c0-4 3.4-6.6 6-11.6z'],
+  shelf: ['M4 5h5v14H4zM11 5h4v14h-4zM17.5 5.6l3.4 1-3.7 13.3-3.4-1z'],
+  seasons: ['M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17z', 'M12 3.5v17M3.5 12h17']
+};
+
+// ── Achievements ──────────────────────────────────────────────────────────
+// Every badge is a milestone the app can already observe from data it keeps,
+// and every one carries its progress whether earned or not: a locked badge
+// reading "7 of 10" is a nudge, a locked badge with no number is a grey box.
+function buildBadges(st) {
+  const defs = [
+    { id: 'first', name: 'First light', icon: 'book', have: st.yearCount, need: 1, hint: 'Finish a book this year' },
+    { id: 'ten', name: 'Double digits', icon: 'bars', have: st.yearCount, need: 10, hint: '10 books in one year' },
+    { id: 'goal', name: 'Goal met', icon: 'target', have: st.yearCount, need: st.goal, hint: 'Reach the yearly goal' },
+    { id: 'week', name: 'Seven straight', icon: 'flame', have: st.bestStreak, need: 7, hint: 'A 7-day reading streak' },
+    { id: 'fortnight', name: 'Fortnight', icon: 'flame', have: st.bestStreak, need: 14, hint: 'A 14-day reading streak' },
+    { id: 'month', name: 'Long haul', icon: 'flame', have: st.bestStreak, need: 30, hint: 'A 30-day reading streak' },
+    { id: 'seasons', name: 'Four seasons', icon: 'seasons', have: st.quarters, need: 4, hint: 'Finish a book in all four quarters' },
+    { id: 'century', name: 'Century shelf', icon: 'shelf', have: st.totalRead, need: 100, hint: '100 books read, all time' }
+  ];
+  return defs.map(d => {
+    const need = Math.max(1, d.need);
+    const have = Math.max(0, d.have || 0);
+    const earned = have >= need;
+    return {
+      ...d, earned,
+      pct: Math.min(100, Math.round(have / need * 100)) + '%',
+      progressLabel: earned ? 'Earned' : have + ' of ' + need
+    };
+  });
+}
+
 const PH = [
   'linear-gradient(150deg,#c67139,#8a4520)',
   'linear-gradient(150deg,#8fa073,#56633f)',
@@ -664,6 +823,14 @@ const SHELVES = [
   { id: 'to-read', label: 'Want to read' }
 ];
 const MONTHS = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+// Which provider a search hit came from, shown on the row: Goodreads results
+// carry the good covers, and it should be visible when a book was only found
+// somewhere else.
+const SOURCE_LABELS = {
+  goodreads: 'Goodreads',
+  google: 'Google Books',
+  openlibrary: 'Open Library'
+};
 const ICONS = {
   shelf: 'M4 5h5v14H4zM11 5h4v14h-4zM17.5 5.6l3.4 1-3.7 13.3-3.4-1z',
   reading: 'M4 5.5c3 0 6 .6 8 2 2-1.4 5-2 8-2v12c-3 0-6 .6-8 2-2-1.4-5-2-8-2z',
@@ -677,7 +844,7 @@ class Component extends DCLogic {
     books: null, screen: 'library', shelf: 'read', selId: null,
     query: '', searchScope: 'shelf', limit: 24, goal: 60, progress: {},
     lastProgressId: null, toast: '', readDays: [],
-    syncCode: '', syncStatus: '', syncUrl: '',
+    syncCode: '', syncStatus: '', syncUrl: '', lastSync: null,
     addTab: 'search', addQuery: '', addExternal: [], addExternalLoading: false,
     mTitle: '', mAuthor: '', mIsbn: '', mShelf: 'to-read'
   };
@@ -709,9 +876,6 @@ class Component extends DCLogic {
     while (this.inflight < 4 && this.queue.length) {
       const b = this.queue.shift();
       this.inflight++;
-      const url = 'https://openlibrary.org/search.json?limit=1&fields=cover_i&title='
-        + encodeURIComponent(String(b.title ?? '').replace(/[:(].*$/, '').trim())
-        + (b.author ? '&author=' + encodeURIComponent(String(b.author).split(',')[0]) : '');
       const ac = new AbortController();
       let done = false;
       const release = () => {
@@ -721,16 +885,39 @@ class Component extends DCLogic {
         this.pump();
       };
       const timer = setTimeout(() => { ac.abort(); release(); }, 6000);
-      fetch(url, { signal: ac.signal }).then(r => r.json()).then(j => {
-        const cid = j && j.docs && j.docs[0] && j.docs[0].cover_i;
-        if (cid) {
-          this.covers[b.id] = 'https://covers.openlibrary.org/b/id/' + cid + '-M.jpg';
-          this.saveCovers();
-          clearTimeout(this._tick);
-          this._tick = setTimeout(() => this.forceUpdate(), 150);
-        }
-      }).catch(() => {}).then(() => { clearTimeout(timer); release(); });
+      const accept = url => {
+        if (!url) return;
+        this.covers[b.id] = url;
+        // stage is an index into deco()'s candidate list, and storing a cover
+        // changes that list (a Goodreads one goes to the front). A stale index
+        // would then point at a candidate that already failed, or past the end
+        // — so a freshly resolved cover starts the chain over.
+        this.stage[b.id] = 0;
+        this.saveCovers();
+        clearTimeout(this._tick);
+        this._tick = setTimeout(() => this.forceUpdate(), 150);
+      };
+      // Goodreads first via the proxy — most of this catalogue has no ISBN at
+      // all, so this queue is what puts a cover on the majority of the shelf,
+      // and Open Library is exactly where those covers were missing.
+      this.metaFetch('/meta/cover', { isbn: b.isbn13 || b.isbn || '', title: b.title, author: b.author }, ac.signal)
+        .then(d => (d && d.coverUrl) || this.coverFromOpenLibrary(b, ac.signal))
+        .then(accept)
+        .catch(() => {})
+        .then(() => { clearTimeout(timer); release(); });
     }
+  }
+
+  // Unproxied fallback for a device with no sync code, or a proxy that is
+  // down — the behaviour this queue had before the providers were added.
+  coverFromOpenLibrary(b, signal) {
+    const url = 'https://openlibrary.org/search.json?limit=1&fields=cover_i&title='
+      + encodeURIComponent(String(b.title ?? '').replace(/[:(].*$/, '').trim())
+      + (b.author ? '&author=' + encodeURIComponent(String(b.author).split(',')[0]) : '');
+    return fetch(url, { signal }).then(r => r.json()).then(j => {
+      const cid = j && j.docs && j.docs[0] && j.docs[0].cover_i;
+      return cid ? 'https://covers.openlibrary.org/b/id/' + cid + '-M.jpg' : '';
+    }).catch(() => '');
   }
 
   get storeKey() { return 'bookshelf.v1'; }
@@ -899,6 +1086,45 @@ class Component extends DCLogic {
     } catch (e) { /* blocked */ }
   }
 
+  // When this device last synced. Deliberately its OWN localStorage key rather
+  // than a field in snapshot(): that object is shared verbatim by
+  // localStorage, the .json backup and the cloud payload, so a sync stamp put
+  // there would ride along to every other device and claim they had synced
+  // when they had not. The status line says "on this device" and means it.
+  get lastSyncKey() { return 'bookshelf.lastsync.v1'; }
+
+  loadLastSync() {
+    try {
+      const raw = localStorage.getItem(this.lastSyncKey);
+      if (!raw) return null;
+      const d = JSON.parse(raw);
+      return d && typeof d.at === 'number' ? d : null;
+    } catch (e) { return null; }
+  }
+
+  // Records a successful sync and returns the state patch for it, so the live
+  // message and the persisted stamp can never disagree. Callers spread the
+  // result into their own setState.
+  noteSync(kind) {
+    const entry = { at: Date.now(), kind };
+    try { localStorage.setItem(this.lastSyncKey, JSON.stringify(entry)); }
+    catch (e) { /* storage full or blocked — the live message still shows */ }
+    return { lastSync: entry, syncStatus: this.syncLabel(entry) };
+  }
+
+  // The one place the wording is decided, used both for a sync that just
+  // happened and for one restored from a previous session.
+  syncLabel(entry) {
+    if (!entry) return '';
+    const verb = entry.kind === 'download' ? 'Downloaded' : 'Uploaded';
+    const d = new Date(entry.at);
+    const time = d.toLocaleTimeString();
+    // Same-day syncs are the common case and reading a date there is noise;
+    // an older one is meaningless without it.
+    if (dayKey(d) === todayKey()) return verb + ' ' + time + '.';
+    return verb + ' ' + d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + ', ' + time + '.';
+  }
+
   syncPush() {
     const code = (this.state.syncCode || '').trim();
     if (code.length < 16) { this.setState({ syncStatus: 'Enter a sync code first (16+ characters).' }); return; }
@@ -917,7 +1143,7 @@ class Component extends DCLogic {
         body: JSON.stringify(this.snapshot())
       }).then(r => {
         if (!r.ok) throw new Error('server said ' + r.status);
-        this.setState({ syncStatus: 'Uploaded ' + new Date().toLocaleTimeString() + '.' });
+        this.setState(this.noteSync('upload'));
       }).catch(err => {
         this.setState({ syncStatus: 'Upload failed — ' + err.message });
       });
@@ -926,7 +1152,7 @@ class Component extends DCLogic {
 
     outbox.push(this.snapshot(), code).then(res => {
       if (res.sent) {
-        this.setState({ syncStatus: 'Uploaded ' + new Date().toLocaleTimeString() + '.' });
+        this.setState(this.noteSync('upload'));
       } else if (res.offline) {
         this.setState({ syncStatus: 'Offline — queued, will upload when you are back online.' });
       } else {
@@ -945,7 +1171,7 @@ class Component extends DCLogic {
       return r.json();
     }).then(d => {
       if (this.restoreSnapshot(d, 'cloud')) {
-        this.setState({ syncStatus: 'Downloaded ' + new Date().toLocaleTimeString() + '.' });
+        this.setState(this.noteSync('download'));
       } else {
         this.setState({ syncStatus: 'Stored data was not readable.' });
       }
@@ -1019,6 +1245,11 @@ class Component extends DCLogic {
     this.loadOfflineCovers();
     const code = this.loadSyncCode();
     if (code) this.setState({ syncCode: code });
+    // syncStatus itself is deliberately left empty here — renderVals derives
+    // the line from lastSync, so a queued-upload or error message set later
+    // still wins over a stale success.
+    const lastSync = this.loadLastSync();
+    if (lastSync) this.setState({ lastSync });
     this.awaitCatalog(0);
 
     // Cloud-sync wiring. A queued upload can go out long after the press that
@@ -1028,7 +1259,13 @@ class Component extends DCLogic {
     const outbox = window.bookshelfSync;
     if (outbox) {
       this.setState({ syncUrl: outbox.url });
-      this._unsubSync = outbox.subscribe(status => this.setState({ syncStatus: status }));
+      // A background flush reports {status, kind}: a successful one has to
+      // update the persisted stamp too, or reloading after an upload that
+      // went out from the service worker would show "Not synced yet" again.
+      this._unsubSync = outbox.subscribe(ev => {
+        if (ev && ev.kind) this.setState({ ...this.noteSync(ev.kind), syncStatus: ev.status });
+        else this.setState({ syncStatus: (ev && ev.status) || ev });
+      });
       outbox.hasPending().then(pending => {
         if (pending) this.setState({ syncStatus: 'An upload is queued — it will go out when you are online.' });
       });
@@ -1189,7 +1426,15 @@ class Component extends DCLogic {
       const cands = [b.isbn13, b.isbn]
         .filter(x => x && String(x).length >= 10)
         .map(x => 'https://covers.openlibrary.org/b/isbn/' + x + '-M.jpg?default=false');
-      if (this.covers[b.id]) cands.push(this.covers[b.id]);
+      const resolved = this.covers[b.id];
+      // A resolved Goodreads cover is a confirmed match for this exact book,
+      // where an Open Library ISBN URL is only a guess that often 404s (which
+      // is what the ?default=false + hideImg stage chain exists to survive).
+      // Anything else keeps the old order: try the ISBN first, fall back.
+      if (resolved) {
+        if (/(^|\.)gr-assets\.com\//.test(resolved)) cands.unshift(resolved);
+        else cands.push(resolved);
+      }
       url = cands[this.stage[b.id] || 0] || '';
       hasCover = !!url;
     }
@@ -1216,25 +1461,63 @@ class Component extends DCLogic {
     return PH[h % PH.length];
   }
 
+  // ── Book metadata ───────────────────────────────────────────────────────
+  // Goodreads has the covers this app is missing but sends no CORS headers,
+  // and Google Books needs a key that must not sit in a public bundle — so
+  // both are reached through the Worker's /meta/* routes instead.
+  //
+  // Resolves to null when this device has no sync code (the header the proxy
+  // requires) or the proxy is unreachable. Callers then fall back to calling
+  // Open Library directly, the one provider that does allow cross-origin
+  // reads, so the app keeps working with no server at all.
+  metaFetch(path, params, signal) {
+    const code = (this.state.syncCode || '').trim();
+    if (code.length < 16) return Promise.resolve(null);
+    const qs = Object.keys(params)
+      .filter(k => params[k] != null && params[k] !== '')
+      .map(k => k + '=' + encodeURIComponent(params[k]))
+      .join('&');
+    return fetch(syncUrl().replace(/\/+$/, '') + path + '?' + qs, {
+      headers: { 'x-sync-code': code }, signal
+    }).then(r => (r.ok ? r.json() : null)).catch(() => null);
+  }
+
+  // The unproxied fallback, in the same normalised shape the proxy returns.
+  searchOpenLibrary(q, signal) {
+    const url = 'https://openlibrary.org/search.json?limit=8&fields=title,author_name,isbn,cover_i,number_of_pages_median&q=' + encodeURIComponent(q);
+    return fetch(url, { signal }).then(r => r.json()).then(j => ((j && j.docs) || []).map(d => ({
+      title: d.title || 'Untitled',
+      author: (d.author_name && d.author_name[0]) || 'Unknown',
+      isbn: (d.isbn || [])[0] || '',
+      isbn13: (d.isbn || []).find(x => String(x).length === 13) || '',
+      pages: d.number_of_pages_median || null,
+      avgRating: null,
+      coverUrl: d.cover_i ? 'https://covers.openlibrary.org/b/id/' + d.cover_i + '-M.jpg' : '',
+      source: 'openlibrary'
+    }))).catch(() => []);
+  }
+
   searchExternal(query) {
     const q = query.trim();
     const myReq = ++this.extReqId;
     if (!q) { this.setState({ addExternal: [], addExternalLoading: false }); return; }
     this.setState({ addExternalLoading: true });
-    const url = 'https://openlibrary.org/search.json?limit=8&fields=title,author_name,isbn,cover_i,number_of_pages_median&q=' + encodeURIComponent(q);
-    fetch(url).then(r => r.json()).then(j => {
+
+    // Same abort discipline the cover queue already uses: three providers fan
+    // out behind the proxy, and one of them hanging must not leave the
+    // spinner up forever.
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 8000);
+    const settle = results => {
+      clearTimeout(timer);
       if (myReq !== this.extReqId) return; // a newer query started — drop this stale response
-      const docs = (j && j.docs) || [];
-      const results = docs.map(d => ({
-        title: d.title || 'Untitled',
-        author: (d.author_name && d.author_name[0]) || 'Unknown',
-        isbn13: (d.isbn || []).find(x => String(x).length === 13) || '',
-        isbn: (d.isbn || [])[0] || '',
-        pages: d.number_of_pages_median || null,
-        coverId: d.cover_i || null
-      }));
       this.setState({ addExternal: results, addExternalLoading: false });
-    }).catch(() => { if (myReq === this.extReqId) this.setState({ addExternal: [], addExternalLoading: false }); });
+    };
+
+    this.metaFetch('/meta/search', { q, limit: 8 }, ac.signal)
+      .then(d => (d && Array.isArray(d.results) ? d.results : this.searchOpenLibrary(q, ac.signal)))
+      .then(settle)
+      .catch(() => settle([]));
   }
 
   deleteBook(id) {
@@ -1264,6 +1547,20 @@ class Component extends DCLogic {
     if (!iso) return '—';
     const d = new Date(iso + 'T00:00:00');
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  // "3 – 14 May" rather than fmtDate twice. The card this sits in is already
+  // headed "Longest in <year>", so repeating the year on both ends of the
+  // range is noise; the month is only repeated when the run crosses one.
+  fmtDayRange(fromIso, toIso) {
+    if (!fromIso || !toIso) return '';
+    const from = new Date(fromIso + 'T00:00:00');
+    const to = new Date(toIso + 'T00:00:00');
+    const day = d => d.toLocaleDateString('en-GB', { day: 'numeric' });
+    const dayMonth = d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    return from.getMonth() === to.getMonth()
+      ? day(from) + ' – ' + dayMonth(to)
+      : dayMonth(from) + ' – ' + dayMonth(to);
   }
 
   pillStyle(on) {
@@ -1340,16 +1637,27 @@ class Component extends DCLogic {
     });
     const yearKeys = Object.keys(byYear).sort().reverse();
     const maxYear = Math.max(1, ...Object.values(byYear));
+    // The current year was hardcoded to '2026' in three places, which was true
+    // when written and silently wrong every following January. "Longest streak
+    // this calendar year" has to agree with the counts beside it, so the year
+    // is read from the clock once and shared.
+    const statsYear = String(new Date().getFullYear());
     const years = yearKeys.map(y => ({
       year: y, count: byYear[y], w: (byYear[y] / maxYear * 100) + '%',
-      bg: y === '2026' ? 'var(--color-accent)' : 'var(--color-accent-2-500)'
+      bg: y === statsYear ? 'var(--color-accent)' : 'var(--color-accent-2-500)'
     }));
     const today = todayKey();
     const streak = readingStreak(s.readDays, today);
     const streakToday = (s.readDays || []).includes(today);
+    const longest = longestStreakInYear(s.readDays, statsYear);
+    // The running streak counts backwards from today and may have started last
+    // December, so it can exceed anything wholly inside this year. Taking the
+    // max keeps the "best" box from reading lower than the "current" one.
+    const bestStreak = Math.max(longest.length, streak);
+    const atPersonalBest = streak > 0 && streak >= bestStreak;
 
     const monthCounts = new Array(12).fill(0);
-    books.filter(b => b.shelf === 'read' && (b.dateRead || '').startsWith('2026'))
+    books.filter(b => b.shelf === 'read' && (b.dateRead || '').startsWith(statsYear))
       .forEach(b => { monthCounts[+b.dateRead.slice(5, 7) - 1]++; });
     const maxMonth = Math.max(1, ...monthCounts);
     const months = monthCounts.map((c, i) => ({
@@ -1357,7 +1665,31 @@ class Component extends DCLogic {
       h: Math.max(4, c / maxMonth * 74) + 'px',
       bg: c ? 'var(--color-accent)' : 'var(--color-neutral-300)'
     }));
-    const yearCount = byYear['2026'] || 0;
+    const yearCount = byYear[statsYear] || 0;
+
+    const tier = tierFor(yearCount, s.goal);
+    const heat = streakHeat(streak);
+    const quarters = [0, 1, 2, 3].filter(q => monthCounts.slice(q * 3, q * 3 + 3).some(c => c > 0)).length;
+    const totalRead = books.filter(b => b.shelf === 'read').length;
+    const badges = buildBadges({ yearCount, goal: s.goal, bestStreak, quarters, totalRead })
+      .map(b => ({
+        ...b,
+        // Earned badges are lit in the tier's own colour, so the grid warms up
+        // as the year does; locked ones stay flat so the contrast is the
+        // reward rather than a separate celebration animation.
+        bg: b.earned ? 'var(--color-accent-100)' : 'var(--color-neutral-200)',
+        bd: b.earned ? 'var(--color-accent-300)' : 'var(--color-neutral-300)',
+        ink: b.earned ? 'var(--color-accent-800)' : 'var(--color-neutral-600)',
+        iconBg: b.earned ? tier.fill : 'var(--color-neutral-300)',
+        iconInk: b.earned ? tier.ink : 'var(--color-neutral-500)',
+        barBg: b.earned ? 'var(--color-accent)' : 'var(--color-neutral-500)',
+        icon: React.createElement('svg', {
+          width: 13, height: 13, viewBox: '0 0 24 24',
+          fill: 'none', stroke: 'currentColor', strokeWidth: 2.2,
+          strokeLinecap: 'round', strokeLinejoin: 'round'
+        }, BADGE_ICONS[b.icon].map((d, i) => React.createElement('path', { key: i, d })))
+      }));
+    const earnedCount = badges.filter(b => b.earned).length;
 
     const wanted = books.filter(b => b.shelf === 'to-read');
     const seriesMap = {};
@@ -1430,24 +1762,30 @@ class Component extends DCLogic {
       });
 
     const addExternalResults = (s.addExternal || []).map((r, i) => {
-      const coverUrl = r.coverId
-        ? 'https://covers.openlibrary.org/b/id/' + r.coverId + '-M.jpg'
-        : (r.isbn13 ? 'https://covers.openlibrary.org/b/isbn/' + r.isbn13 + '-M.jpg?default=false' : '');
-      const short = r.title.length > 42 ? r.title.slice(0, 40).trim() + '…' : r.title;
-      const authorShort = r.author.length > 24 ? r.author.split(',')[0] : r.author;
+      const title = r.title || 'Untitled';
+      const author = r.author || 'Unknown';
+      // The proxy hands back a resolved cover URL (Goodreads first, which is
+      // the whole point of it); the ISBN guess is only for a result that
+      // reached us with no cover at all.
+      const coverUrl = r.coverUrl
+        || (r.isbn13 ? 'https://covers.openlibrary.org/b/isbn/' + r.isbn13 + '-M.jpg?default=false' : '');
+      const short = title.length > 42 ? title.slice(0, 40).trim() + '…' : title;
+      const authorShort = author.length > 24 ? author.split(',')[0] : author;
       return {
-        title: r.title, short, authorShort,
-        ph: this.phFor(r.title), hasCover: !!coverUrl, coverUrl,
+        title, short, authorShort,
+        sourceLabel: SOURCE_LABELS[r.source] || '',
+        ph: this.phFor(title), hasCover: !!coverUrl, coverUrl,
         add: () => {
           const nb = {
-            id: Date.now() + i, title: r.title, author: r.author, series: '',
-            isbn: r.isbn || '', isbn13: r.isbn13 || '', myRating: 0, avgRating: null,
+            id: Date.now() + i, title, author, series: '',
+            isbn: r.isbn || '', isbn13: r.isbn13 || '', myRating: 0,
+            avgRating: r.avgRating == null ? null : r.avgRating,
             pages: r.pages || null, dateRead: '', dateAdded: new Date().toISOString().slice(0, 10),
             shelf: 'to-read', readCount: 0, note: '', _new: true
           };
           if (coverUrl) { this.covers[nb.id] = coverUrl; this.saveCovers(); }
           this.setState({ books: [nb, ...this.state.books], addExternal: [], addQuery: '' });
-          this.say('“' + r.title + '” added to Want to read');
+          this.say('“' + title + '” added to Want to read');
         }
       };
     });
@@ -1545,6 +1883,29 @@ class Component extends DCLogic {
         : (streakToday
             ? 'Counting today. Keep it going tomorrow.'
             : 'Yesterday’s streak is still alive — record progress today to keep it.'),
+      statsYear,
+      streakUnit: streak === 1 ? 'day' : 'days',
+      longestStreak: bestStreak,
+      longestUnit: bestStreak === 1 ? 'day' : 'days',
+      // A bare "12" is a number; "12 days · 3–14 May" is a memory. Only shown
+      // once there is a real run to point at.
+      hasLongestRange: longest.length > 1,
+      longestRange: this.fmtDayRange(longest.from, longest.to),
+      atPersonalBest,
+      streakNowBg: streak > 0 ? 'var(--color-accent-100)' : 'var(--color-neutral-200)',
+      streakNowBd: streak > 0 ? 'var(--color-accent-300)' : 'var(--color-neutral-300)',
+      streakNowInk: streak > 0 ? 'var(--color-accent-800)' : 'var(--color-neutral-600)',
+      badges, badgeSummary: earnedCount + ' of ' + badges.length + ' earned',
+      tierName: tier.name, tierFill: tier.fill, tierCore: tier.core,
+      tierRing: tier.ring, tierInk: tier.ink, tierGlow: tier.glow,
+      hasStreakBadge: !!heat,
+      streakBadgeBg: heat ? heat.bg : 'transparent',
+      streakBadgeInk: heat ? heat.ink : 'transparent',
+      // The avatar is a 44px medallion with no room for words, so everything it
+      // encodes visually is spelled out here for the tooltip and for screen
+      // readers.
+      avatarTitle: tier.name + ' · ' + yearCount + ' of ' + s.goal + ' books in ' + statsYear
+        + (streak > 0 ? ' · ' + streak + '-day streak' : ''),
       reading,
       readingSubtitle: reading.length + ' books on the go — drag to log where you are.',
       sel: selD ? {
@@ -1585,7 +1946,7 @@ class Component extends DCLogic {
       doBackup: () => this.doBackup(),
       onRestoreFile: e => this.onRestoreFile(e),
       syncCode: s.syncCode,
-      syncStatus: s.syncStatus || 'Not synced yet on this device.',
+      syncStatus: s.syncStatus || this.syncLabel(s.lastSync) || 'Not synced yet on this device.',
       syncBlurb: 'Keeps your shelf on a server, so it survives clearing the browser and can be picked up on another device. Same code = same shelf.',
       onSyncCode: e => {
         const v = e.target.value.trim();
@@ -1636,7 +1997,10 @@ class Component extends DCLogic {
           id: Date.now(), title: s.mTitle.trim(), author: s.mAuthor.trim() || 'Unknown',
           series: '', isbn: '', isbn13: s.mIsbn.trim(), myRating: 0, avgRating: null,
           pages: null, dateRead: s.mShelf === 'read' ? new Date().toISOString().slice(0, 10) : '',
-          dateAdded: new Date().toISOString().slice(0, 10), shelf: s.mShelf, readCount: 1, note: '', _new: true
+          // Only a book filed straight onto "Read" has actually been read
+          // once; anything else starts at zero, the way search-added books do.
+          dateAdded: new Date().toISOString().slice(0, 10), shelf: s.mShelf,
+          readCount: s.mShelf === 'read' ? 1 : 0, note: '', _new: true
         };
         this.setState({ books: [nb, ...books], shelf: s.mShelf, mTitle: '', mAuthor: '', mIsbn: '' });
         // Pop the "Add" entry pushed by openAdd, back to wherever it was

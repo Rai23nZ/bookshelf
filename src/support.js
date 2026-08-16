@@ -277,8 +277,13 @@
         return () => this._listeners.delete(fn);
       }
 
-      _emit(status) {
-        this._listeners.forEach((fn) => { try { fn(status); } catch (e) { /* a bad listener must not break the flush */ } });
+      // Listeners get { status, kind }, not a bare string: the page has to
+      // persist "last synced" for a flush it never initiated, and sniffing the
+      // wording to work out whether it succeeded would break the moment the
+      // copy changes. `kind` is absent for anything that is not a success.
+      _emit(status, kind) {
+        const ev = { status, kind };
+        this._listeners.forEach((fn) => { try { fn(ev); } catch (e) { /* a bad listener must not break the flush */ } });
       }
 
       async hasPending() {
@@ -342,7 +347,7 @@
           if (!rec) return { empty: true };
           await this._send(rec.snapshot, rec.code, rec.url || this.url);
           await this.db.clearPending();
-          this._emit('Uploaded ' + new Date().toLocaleTimeString() + ' (queued while offline).');
+          this._emit('Uploaded ' + new Date().toLocaleTimeString() + ' (queued while offline).', 'upload');
           return { sent: true };
         } catch (err) {
           // Stays parked for the next attempt.
@@ -361,7 +366,7 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', (e) => {
         if (e.data && e.data.type === 'outbox-flushed') {
-          window.bookshelfSync._emit('Uploaded ' + new Date().toLocaleTimeString() + ' (queued while offline).');
+          window.bookshelfSync._emit('Uploaded ' + new Date().toLocaleTimeString() + ' (queued while offline).', 'upload');
         }
       });
     }

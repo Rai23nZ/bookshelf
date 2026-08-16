@@ -21,6 +21,17 @@
 // KV is keyed by its SHA-256, so a dump of the namespace does not hand out
 // working codes. It travels in a request header, never in the URL, so it
 // can't end up in server logs, browser history or a Referer header.
+//
+// This worker also serves book metadata under /meta/*, because the browser
+// cannot reach those providers itself: goodreads.com sends no CORS headers at
+// all, and Google Books needs an API key that would be public the moment it
+// went into the bundle. Optional extra setup for that half:
+//   6. Settings -> Variables and Secrets -> Add -> Secret
+//        Name: GOOGLE_BOOKS_KEY   Value: a Google Books API key
+// Without it the Google Books provider is simply skipped and the other two
+// still answer. Do NOT fall back to keyless Google Books: unauthenticated
+// calls share one global anonymous quota that is routinely exhausted (it
+// answers 429 "Quota exceeded ... Queries per day" most of the time).
 
 const MIN_CODE = 16;
 const MAX_BODY = 5 * 1024 * 1024; // a shelf is ~30-60KB; this is a sanity ceiling
@@ -70,9 +81,243 @@ function readCode(request) {
   return code;
 }
 
+async function sha256hex(input) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 async function kvKey(code) {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(code));
-  return 'shelf:' + [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+  return 'shelf:' + await sha256hex(code);
+}
+
+// ── Book metadata (/meta/*) ─────────────────────────────────────────────────
+//
+// Three providers, merged. None of them is sufficient alone:
+//   - Goodreads has the best covers and is the primary source, but its
+//     auto_complete endpoint returns NO isbn field and does not index
+//     Cyrillic at all (any Russian-script query comes back empty).
+//   - Google Books has the isbn and handles Cyrillic, but needs a key.
+//   - Open Library is the only one the client can also call directly, so it
+//     stays as the no-key, no-worker fallback path on both sides.
+
+const META_TIMEOUT_MS = 5000;
+const META_TTL = 7 * 24 * 60 * 60;   // searches: providers do change their minds
+const COVER_TTL = 30 * 24 * 60 * 60; // cover URLs are effectively immutable
+
+function metaFetch(url, init) {
+  // One slow provider must not hold the whole response hostage; a provider
+  // that times out just contributes nothing.
+  return fetch(url, { ...init, signal: AbortSignal.timeout(META_TIMEOUT_MS) });
+}
+
+// Goodreads hands out a thumbnail (._SY75_ / ._SX50_, ~2KB). The same path
+// with a bigger size token is the full cover (~25KB) — worth doing once here
+// rather than shipping a blurry image to every device.
+//
+// A book Goodreads knows but has no jacket for comes back with a /nophoto/
+// placeholder rather than an empty field. That has to be treated as "no
+// cover": it is a grey rectangle, and the app has its own placeholder that
+// looks like the rest of the shelf.
+function upgradeGoodreadsCover(url) {
+  if (!url) return '';
+  const s = String(url);
+  if (s.includes('/nophoto/')) return '';
+  return s.replace(/\._S[XY]\d+_\./, '._SY475_.');
+}
+
+async function fromGoodreads(q) {
+  const url = 'https://www.goodreads.com/book/auto_complete?format=json&q=' + encodeURIComponent(q);
+  const res = await metaFetch(url, { headers: { accept: 'application/json' } });
+  if (!res.ok) return [];
+  const list = await res.json();
+  if (!Array.isArray(list)) return [];
+  return list.map(d => ({
+    title: String(d.bookTitleBare || d.title || '').trim(),
+    author: String((d.author && d.author.name) || '').trim(),
+    isbn: '', isbn13: '',
+    pages: d.numPages || null,
+    avgRating: d.avgRating ? Number(d.avgRating) : null,
+    coverUrl: upgradeGoodreadsCover(d.imageUrl),
+    source: 'goodreads'
+  })).filter(x => x.title);
+}
+
+async function fromGoogleBooks(q, key) {
+  if (!key) return [];
+  // country is required for this endpoint from some datacentre IPs — without
+  // it Google answers 403 "unable to determine location".
+  const url = 'https://www.googleapis.com/books/v1/volumes?maxResults=10&country=US&key='
+    + encodeURIComponent(key) + '&q=' + encodeURIComponent(q);
+  const res = await metaFetch(url);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return ((data && data.items) || []).map(item => {
+    const v = item.volumeInfo || {};
+    const ids = v.industryIdentifiers || [];
+    const pick = type => (ids.find(x => x.type === type) || {}).identifier || '';
+    const img = (v.imageLinks && (v.imageLinks.thumbnail || v.imageLinks.smallThumbnail)) || '';
+    return {
+      title: String(v.title || '').trim(),
+      author: String((v.authors && v.authors[0]) || '').trim(),
+      isbn: pick('ISBN_10'), isbn13: pick('ISBN_13'),
+      pages: v.pageCount || null,
+      avgRating: v.averageRating || null,
+      coverUrl: img.replace(/^http:/, 'https:'),
+      source: 'google'
+    };
+  }).filter(x => x.title);
+}
+
+async function fromOpenLibrary(q) {
+  const url = 'https://openlibrary.org/search.json?limit=10&fields=title,author_name,isbn,cover_i,number_of_pages_median&q='
+    + encodeURIComponent(q);
+  const res = await metaFetch(url);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return ((data && data.docs) || []).map(d => ({
+    title: String(d.title || '').trim(),
+    author: String((d.author_name && d.author_name[0]) || '').trim(),
+    isbn: (d.isbn || [])[0] || '',
+    isbn13: (d.isbn || []).find(x => String(x).length === 13) || '',
+    pages: d.number_of_pages_median || null,
+    avgRating: null,
+    coverUrl: d.cover_i ? 'https://covers.openlibrary.org/b/id/' + d.cover_i + '-M.jpg' : '',
+    source: 'openlibrary'
+  })).filter(x => x.title);
+}
+
+function normText(s) {
+  return String(s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+}
+
+function coreTitle(t) {
+  return normText(String(t || '').replace(/[(\[:].*$/, ''));
+}
+
+// Providers title the same book differently ("Dune" vs "Dune (Dune, #1)"), so
+// an exact comparison would never merge anything and Goodreads hits would
+// never pick up an isbn. Compare the title before any subtitle or bracketed
+// series, plus the first author's surname.
+function mergeKey(r) {
+  const words = normText(String(r.author).split(',')[0]).split(' ');
+  return coreTitle(r.title) + '|' + (words[words.length - 1] || '');
+}
+
+// Goodreads' auto_complete is a search box, not a lookup: a weak query gets
+// whatever it thought was closest rather than nothing. Asking it about
+// "1С:Программирование для начинающих" — which truncates to "1С" — comes back
+// with The Hunger Games, and that cover would then be cached onto the book for
+// a month. A wrong cover is worse than none, since the app's own placeholder
+// at least looks deliberate, so a title-based hit has to actually match.
+function titleMatches(want, got) {
+  // Second pair drops a trailing comma clause, so "The Hobbit" still matches
+  // Goodreads' "The Hobbit, or There and Back Again" — the same book, and
+  // exactly the kind of cover this whole path exists to fetch. The comma is
+  // NOT dropped in mergeKey, where it would over-merge unrelated titles that
+  // happen to share a first clause.
+  const pairs = [
+    [coreTitle(want), coreTitle(got)],
+    [coreTitle(String(want || '').split(',')[0]), coreTitle(String(got || '').split(',')[0])]
+  ];
+  for (const [a, b] of pairs) {
+    if (!a || !b) continue;
+    if (a === b) return true;
+    // Tolerate one side carrying an edition or series suffix the other lacks,
+    // but not a bare prefix that happens to collide.
+    const short = a.length <= b.length ? a : b;
+    const long = a.length <= b.length ? b : a;
+    if (long.startsWith(short) && short.length >= Math.max(4, long.length * 0.5)) return true;
+  }
+  return false;
+}
+
+// Later providers fill gaps in earlier ones; they never overwrite. Order in
+// equals rank out, so Goodreads results stay on top with their covers while
+// gaining the isbn only Google Books and Open Library report.
+function mergeResults(lists) {
+  const byKey = new Map();
+  for (const list of lists) {
+    for (const r of list) {
+      const key = mergeKey(r);
+      const seen = byKey.get(key);
+      if (!seen) { byKey.set(key, { ...r }); continue; }
+      for (const field of ['isbn', 'isbn13', 'coverUrl', 'author']) {
+        if (!seen[field] && r[field]) seen[field] = r[field];
+      }
+      for (const field of ['pages', 'avgRating']) {
+        if (seen[field] == null && r[field] != null) seen[field] = r[field];
+      }
+    }
+  }
+  return [...byKey.values()];
+}
+
+async function searchProviders(q, env) {
+  const settled = await Promise.allSettled([
+    fromGoodreads(q),
+    fromGoogleBooks(q, env.GOOGLE_BOOKS_KEY),
+    fromOpenLibrary(q)
+  ]);
+  return mergeResults(settled.map(r => (r.status === 'fulfilled' ? r.value : [])));
+}
+
+// Cache is best-effort on purpose: without a KV binding /meta still answers,
+// it just costs a provider round trip every time. The Google Books key is the
+// real reason this exists — it is what keeps repeat lookups inside quota.
+async function cached(env, key, ttl, produce) {
+  const kv = env.BOOKSHELF_KV;
+  if (!kv) return produce();
+  const hit = await kv.get(key).catch(() => null);
+  if (hit) { try { return JSON.parse(hit); } catch (e) { /* poisoned entry, refetch */ } }
+  const value = await produce();
+  await kv.put(key, JSON.stringify(value), { expirationTtl: ttl }).catch(() => {});
+  return value;
+}
+
+async function handleMeta(request, env, origin, path) {
+  if (request.method !== 'GET') return json({ error: 'method not allowed' }, 405, origin);
+  // Same credential as sync, format-checked only — deliberately NOT looked up
+  // in KV, so a device that has a code but has never uploaded can still
+  // search. Requiring the header at all is what forces a CORS preflight,
+  // which is what makes ALLOWED_ORIGINS bite for browsers, and it keeps this
+  // from being a wide-open relay.
+  if (!readCode(request)) return json({ error: 'missing or malformed sync code' }, 400, origin);
+
+  const params = new URL(request.url).searchParams;
+
+  if (path === '/meta/search') {
+    const q = (params.get('q') || '').trim();
+    if (!q) return json({ results: [] }, 200, origin);
+    const limit = Math.min(20, Math.max(1, +(params.get('limit') || 8) || 8));
+    const key = 'meta:search:' + await sha256hex(normText(q));
+    const results = await cached(env, key, META_TTL, () => searchProviders(q, env));
+    return json({ results: results.slice(0, limit) }, 200, origin);
+  }
+
+  if (path === '/meta/cover') {
+    const isbn = (params.get('isbn') || '').trim();
+    const title = (params.get('title') || '').trim();
+    const author = (params.get('author') || '').trim();
+    // An isbn is an exact handle; a title alone is a guess, so strip the
+    // subtitle the way the client used to before asking.
+    const q = isbn || (title.replace(/[:(].*$/, '').trim() + (author ? ' ' + author.split(',')[0] : '')).trim();
+    if (!q) return json({ error: 'nothing to look up' }, 400, origin);
+    const key = 'meta:cover:' + await sha256hex(normText(q));
+    // A miss is cached too: a book no provider has must not re-run three
+    // lookups on every single session.
+    const found = await cached(env, key, COVER_TTL, async () => {
+      const results = await searchProviders(q, env);
+      // An isbn already identifies the edition, so anything it returns is the
+      // right book. A title search does not, and has to be checked.
+      const ok = isbn ? results : results.filter(r => titleMatches(title, r.title));
+      const withCover = ok.find(r => r.coverUrl);
+      return withCover ? { coverUrl: withCover.coverUrl, source: withCover.source } : {};
+    });
+    if (!found || !found.coverUrl) return json({ error: 'no cover found' }, 404, origin);
+    return json(found, 200, origin);
+  }
+
+  return json({ error: 'not found' }, 404, origin);
 }
 
 export default {
@@ -82,6 +327,12 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
     }
+
+    // Sync ignores the path entirely and always has — every existing client
+    // PUTs and GETs the bare worker URL, so routing is additive: only /meta/*
+    // is peeled off, everything else falls through to exactly what ran before.
+    const path = new URL(request.url).pathname;
+    if (path.startsWith('/meta/')) return handleMeta(request, env, origin, path);
 
     const kv = env.BOOKSHELF_KV;
     if (!kv) return json({ error: 'KV binding BOOKSHELF_KV is not configured' }, 500, origin);
