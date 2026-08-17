@@ -36,7 +36,10 @@ IMG_HOSTS = {
 MAX_IMG = 8 * 1024 * 1024
 GOOGLE_BOOKS_KEY = os.environ.get('GOOGLE_BOOKS_KEY', '')
 META_CACHE = {}
-POOL = ThreadPoolExecutor(max_workers=6)
+# Each cover lookup occupies several workers at once and an unreachable
+# provider holds one for the full timeout, so a small pool serialises the
+# shelf-wide backfill badly. The real Worker has no such limit.
+POOL = ThreadPoolExecutor(max_workers=16)
 
 
 def read_code(handler):
@@ -162,8 +165,14 @@ def norm_text(s):
     return NON_WORD_RE.sub(' ', str(s or '').lower().replace('ё', 'е')).strip()
 
 
+LEAD_ARTICLE_RE = re.compile(r'^(the|a|an) ')
+
+
 def core_title(t):
-    return norm_text(re.sub(r'[(\[:].*$', '', str(t or '')))
+    # A leading article is dropped because the comparison is anchored at the
+    # start: "Three Kingdoms" would otherwise fail against Goodreads' "The
+    # Three Kingdoms. Luo Guanzhong".
+    return LEAD_ARTICLE_RE.sub('', norm_text(re.sub(r'[(\[:].*$', '', str(t or ''))))
 
 
 def merge_key(r):
@@ -225,20 +234,49 @@ def author_matches(want, got):
     return len(surname) >= 3 and surname in g.split(' ')
 
 
+def goodreads_cover(title, author, isbn):
+    """Two stages, author required. Without the author in the query the real
+    book is often absent from Goodreads' five hits entirely; with it, summary
+    editions surface, and those are separated by their author field rather than
+    by any title test. The title-only stage is the fallback for books whose
+    title+author query returns nothing but study guides. Mirrors
+    goodreadsCover() in the worker."""
+    if isbn:
+        try:
+            return from_goodreads(isbn)
+        except Exception:
+            return []
+    first_author = str(author or '').split(',')[0].strip()
+    queries = [title + ' ' + first_author, title] if first_author else [title]
+    # Issued together, not one after the other: in series the two 5s provider
+    # budgets would exceed the client's 9s cover-queue timeout, so the fallback
+    # stage would die on exactly the books it exists to rescue. Preference is
+    # still by query order, not by whichever answers first.
+    futures = [POOL.submit(from_goodreads, q) for q in queries]
+    for f in futures:
+        try:
+            hits = f.result(timeout=META_TIMEOUT + 2)
+        except Exception:
+            hits = []
+        ok = [r for r in hits if title_matches(title, r['title'])
+              and (not first_author or author_matches(author, r['author']))]
+        if ok:
+            ok.sort(key=lambda r: r.get('ratingsCount') or 0, reverse=True)
+            return ok
+    return []
+
+
 def cover_providers(title, author, isbn):
-    """Goodreads gets the bare title: its auto_complete matches on TITLES and
-    summary editions are titled "<Title> by <Author>", so including the author
-    ranks them above the book. Open Library and Google Books do not have that
-    failure mode and need the author to disambiguate. Mirrors coverProviders()
-    in the worker."""
+    """Open Library and Google Books do not have the summary problem and need
+    the author to disambiguate, so they keep the combined query."""
     first_author = str(author or '').split(',')[0].strip()
     wide = isbn or (title + ((' ' + first_author) if first_author else '')).strip()
-    jobs = [
-        POOL.submit(from_goodreads, isbn or title),
-        POOL.submit(from_google_books, wide),
-        POOL.submit(from_open_library, wide),
-    ]
-    lists = []
+    # Google Books and Open Library go to the pool; Goodreads runs inline
+    # because goodreads_cover() submits its own two queries to that same pool,
+    # and a pooled task blocking on other pooled tasks deadlocks once the
+    # workers are all occupied. Only the caller's thread may wait on the pool.
+    jobs = [POOL.submit(from_google_books, wide), POOL.submit(from_open_library, wide)]
+    lists = [goodreads_cover(title, author, isbn)]
     for f in jobs:
         try:
             lists.append(f.result(timeout=META_TIMEOUT + 2))
@@ -363,13 +401,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 # An isbn already identifies the edition; a title search does
                 # not, and has to be checked against what came back.
                 ok = results if isbn else [r for r in results if title_matches(title, r['title'])]
-                # Summary editions clear the title check ("Make Me: by Lee
-                # Child a Jack Reacher Novel" truncates to "make me") but are
-                # credited to their packager and carry a rounding error of the
-                # real ratings. A preference, not a filter, so an author spelt
-                # differently still yields a cover rather than none.
-                ok.sort(key=lambda r: (author_matches(author, r['author']), r.get('ratingsCount') or 0),
-                        reverse=True)
+                # Goodreads entries arrive already author-filtered and ranked by
+                # goodreads_cover(), and merge_results keeps them first. This
+                # only promotes an author match within the Open Library /
+                # Google Books tail, by stable partition so ranking survives.
+                if author:
+                    ok = ([r for r in ok if author_matches(author, r['author'])]
+                          + [r for r in ok if not author_matches(author, r['author'])])
                 hit = next((r for r in ok if r.get('coverUrl')), None)
                 return {'coverUrl': hit['coverUrl'], 'source': hit['source']} if hit else {}
 

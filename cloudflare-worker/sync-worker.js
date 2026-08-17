@@ -112,7 +112,12 @@ const COVER_TTL = 30 * 24 * 60 * 60; // cover URLs are effectively immutable
 // v3: cover lookup stopped putting the author in the Goodreads query and
 // started ranking by author match then popularity, so entries cached under v2
 // can hold a summary edition's jacket.
-const META_CACHE_VERSION = 'v3';
+// v4: that turned out to be a bad trade — without the author in the query the
+// real book is often absent from Goodreads' five hits entirely, and ranking
+// (rather than requiring) an author match then handed the cover to whatever
+// popular book shared the title prefix. v3 entries hold covers from other
+// books outright.
+const META_CACHE_VERSION = 'v4';
 
 // Cloudflare's fetch() sends NO User-Agent unless one is set, and Goodreads
 // sits behind CloudFront, which answers a UA-less request with a 403 error
@@ -219,8 +224,11 @@ function normText(s) {
   return String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
 
+// A leading article is dropped because the comparison below is anchored at the
+// start of the string: without this, "Three Kingdoms" fails against Goodreads'
+// "The Three Kingdoms. Luo Guanzhong" even though it is plainly the same book.
 function coreTitle(t) {
-  return normText(String(t || '').replace(/[(\[:].*$/, ''));
+  return normText(String(t || '').replace(/[(\[:].*$/, '')).replace(/^(the|a|an) /, '');
 }
 
 // Providers title the same book differently ("Dune" vs "Dune (Dune, #1)"), so
@@ -298,22 +306,56 @@ function authorMatches(want, got) {
   return surname.length >= 3 && g.split(' ').includes(surname);
 }
 
-// Cover lookup asks the providers differently from a free-text search.
+// Resolving a cover is not the same problem as a free-text search, and getting
+// it wrong is worse: a search result the user rejects costs nothing, a cover is
+// attached to their book silently.
 //
-// Goodreads' auto_complete matches on TITLES, and summary editions are titled
-// "<Title> by <Author>" — so putting the author in the query ranks the spam
-// above the book. Measured: "Station Eleven Emily St. John Mandel" returns
-// five summaries and not the novel at all, while "Station Eleven" alone
-// returns it first with 643k ratings. Goodreads therefore gets the bare title
-// and the author is verified on the results instead.
+// Goodreads' auto_complete matches on TITLES and returns about five hits ranked
+// by popularity. That has two consequences pulling in opposite directions:
 //
-// Open Library and Google Books do not have that failure mode and genuinely
+//   - Without the author in the query the real book is frequently absent
+//     altogether. "The Secret" returns Harry Potter and The Secret Garden and
+//     no Lee Child; "Revelations" returns Melissa de la Cruz and no Oliver
+//     Bowden; Recall, Brotherhood, In the Darkness and The Method return
+//     nothing relevant at all. With the author appended, every one of them
+//     comes back at position one.
+//   - With the author in the query, summary editions surface, because they are
+//     literally titled "<Title> by <Author>" — and their titles truncate to
+//     exactly the real one, so no title test can separate them.
+//
+// What does separate them is the author field: a summary is credited to its
+// packager ("Short Reads", "BookRags", "Unknown Author"). So the author goes
+// back into the query AND becomes a requirement on the results. The title-only
+// query survives as a second stage for the case the first was meant to fix —
+// Station Eleven, whose title+author query returns nothing but study guides.
+async function goodreadsCover(title, author, isbn) {
+  if (isbn) return fromGoodreads(isbn).catch(() => []);
+  const firstAuthor = String(author || '').split(',')[0].trim();
+  const queries = firstAuthor ? [title + ' ' + firstAuthor, title] : [title];
+  // Issued together, not one after the other. Awaiting the first before
+  // deciding whether to run the second would put two 5s provider budgets in
+  // series, and the client's cover queue gives up at 9s — the fallback stage
+  // would time out exactly on the books it exists to rescue. Preference is
+  // still by query order, not by whichever answers first.
+  const settled = await Promise.allSettled(queries.map(q => fromGoodreads(q)));
+  for (const r of settled) {
+    const hits = r.status === 'fulfilled' ? r.value : [];
+    const ok = hits.filter(x => titleMatches(title, x.title)
+      && (!firstAuthor || authorMatches(author, x.author)));
+    // Most-rated wins among what is left: that is the canonical edition rather
+    // than a box set or a reissue.
+    if (ok.length) return ok.sort((a, b) => (b.ratingsCount || 0) - (a.ratingsCount || 0));
+  }
+  return [];
+}
+
+// Open Library and Google Books do not have the summary problem and genuinely
 // need the author to disambiguate, so they keep the combined query.
 async function coverProviders(title, author, isbn, env) {
   const firstAuthor = String(author || '').split(',')[0].trim();
   const wide = isbn || (title + (firstAuthor ? ' ' + firstAuthor : '')).trim();
   const settled = await Promise.allSettled([
-    fromGoodreads(isbn || title),
+    goodreadsCover(title, author, isbn),
     fromGoogleBooks(wide, env.GOOGLE_BOOKS_KEY),
     fromOpenLibrary(wide)
   ]);
@@ -455,15 +497,15 @@ async function handleMeta(request, env, origin, path) {
       // An isbn already identifies the edition, so anything it returns is the
       // right book. A title search does not, and has to be checked.
       const ok = isbn ? results : results.filter(r => titleMatches(title, r.title));
-      // Summary editions clear the title check — "Make Me: by Lee Child a Jack
-      // Reacher Novel" truncates to exactly "make me" — but they are credited
-      // to their packager and carry a rounding error of the real book's
-      // ratings. Rank on both, as a preference rather than a filter, so an
-      // author spelt differently still yields a cover instead of none.
-      ok.sort((a, b) =>
-        (authorMatches(author, b.author) ? 1 : 0) - (authorMatches(author, a.author) ? 1 : 0)
-        || (b.ratingsCount || 0) - (a.ratingsCount || 0));
-      const withCover = ok.find(r => r.coverUrl);
+      // Goodreads entries arrive already author-filtered and ranked by
+      // goodreadsCover(), and mergeResults keeps them first. This only promotes
+      // an author match within the Open Library / Google Books tail, and does
+      // it by stable partition rather than a sort so that ranking survives.
+      const ranked = author
+        ? [...ok.filter(r => authorMatches(author, r.author)),
+           ...ok.filter(r => !authorMatches(author, r.author))]
+        : ok;
+      const withCover = ranked.find(r => r.coverUrl);
       return withCover ? { coverUrl: withCover.coverUrl, source: withCover.source } : {};
     });
     if (!found || !found.coverUrl) return json({ error: 'no cover found' }, 404, origin);

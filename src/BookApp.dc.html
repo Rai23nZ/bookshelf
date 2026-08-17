@@ -666,7 +666,10 @@ const ROOT_SCREEN = 'library';
 // Bump to force stored Goodreads cover URLs to be resolved again — see
 // migrateCovers(). 2: the cover lookup used to hand Goodreads the author too,
 // which ranked "<Title> by <Author>" summary editions above the real book.
-const COVER_EPOCH = 2;
+// 3: the lookup was resolving some books to a different book's jacket
+// entirely — "The Secret" (Lee Child) got The Secret Garden — so anything
+// stored under epoch 2 is suspect.
+const COVER_EPOCH = 3;
 
 // ── Reading streak ────────────────────────────────────────────────────────
 // A day "counts" when reading progress was recorded on it, tracked as a list
