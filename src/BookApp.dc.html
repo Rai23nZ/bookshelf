@@ -543,6 +543,27 @@ Download CSV for Goodreads
 <div style="font-size:12.5px;line-height:1.6;color:var(--color-neutral-700)">The code is the only thing protecting your data — anyone who has it can read and overwrite your shelf. Treat it like a password: use the generated one, don’t post it anywhere, and paste it on your other devices to share the same shelf.</div>
 </div>
 
+<h2 style="font-family:var(--font-heading);font-size:22px;margin:22px 0 4px">Covers</h2>
+<div style="font-size:13px;color:var(--color-neutral-600);margin-bottom:12px">Browsing only fetches covers for the books near the screen. This does the whole shelf at once and keeps the images for offline use.</div>
+<div style="border-radius:24px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);padding:16px;margin-bottom:14px">
+<div style="display:flex;align-items:center;gap:12px">
+<div style="flex:1;min-width:0">
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:4px">Without a saved cover</div>
+<div style="font-family:var(--font-heading);font-size:20px;line-height:1">{{ coversMissing }} <span style="font-size:13px;color:var(--color-neutral-600)">of {{ coversTotal }}</span></div>
+</div>
+<button onClick="{{ doBackfill }}" style="flex:none;height:40px;padding:0 16px;border-radius:999px;border:0;background:var(--color-accent-200);color:var(--color-accent-800);font-family:var(--font-body);font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap">{{ backfillLabel }}</button>
+</div>
+<sc-if value="{{ hasBackfillProgress }}" hint-placeholder-val="{{ true }}">
+<div style="font-family:ui-monospace,monospace;font-size:12.5px;color:var(--color-accent-800);margin-top:11px">{{ backfillProgress }}</div>
+</sc-if>
+<sc-if value="{{ backfillIdle }}" hint-placeholder-val="{{ true }}">
+<div style="font-size:11.5px;line-height:1.5;color:var(--color-neutral-600);margin-top:11px">Covers average about 40 KB, so a full shelf is roughly 17 MB. It can be stopped at any point, and running it again picks up only what is still missing.</div>
+</sc-if>
+<sc-if value="{{ backfillRunning }}" hint-placeholder-val="{{ false }}">
+<div style="font-size:11.5px;line-height:1.5;color:var(--color-neutral-600);margin-top:6px">Keep this screen open — the run stops if the app is closed.</div>
+</sc-if>
+</div>
+
 <h2 style="font-family:var(--font-heading);font-size:22px;margin:22px 0 4px">This build</h2>
 <div style="font-size:13px;color:var(--color-neutral-600);margin-bottom:12px">Installed as an app there is no address bar, so this is how you tell whether an update arrived.</div>
 <div style="border-radius:24px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);padding:16px;margin-bottom:14px">
@@ -897,6 +918,10 @@ class Component extends DCLogic {
   // remote URL that still has to be fetched live every time.
   offlineCovers = {};
   cachingCovers = new Set();
+  // Export's bulk cover job. Session-scoped on purpose: a half-finished run is
+  // not worth resuming across a reload when re-running it is idempotent and
+  // skips everything already cached.
+  backfill = { running: false, cancel: false, done: 0, failed: 0, total: 0 };
 
   lookupCover(b) {
     const key = b.id;
@@ -926,26 +951,37 @@ class Component extends DCLogic {
       // answered — covers silently stopped resolving for the whole session.
       const timer = setTimeout(() => { ac.abort(); release(); }, 9000);
       const accept = url => {
-        if (!url) return;
-        this.covers[b.id] = url;
-        // stage is an index into deco()'s candidate list, and storing a cover
-        // changes that list (a Goodreads one goes to the front). A stale index
-        // would then point at a candidate that already failed, or past the end
-        // — so a freshly resolved cover starts the chain over.
-        this.stage[b.id] = 0;
-        this.saveCovers();
+        if (!this.acceptCover(b, url)) return;
         clearTimeout(this._tick);
         this._tick = setTimeout(() => this.forceUpdate(), 150);
       };
-      // Goodreads first via the proxy — most of this catalogue has no ISBN at
-      // all, so this queue is what puts a cover on the majority of the shelf,
-      // and Open Library is exactly where those covers were missing.
-      this.metaFetch('/meta/cover', { isbn: b.isbn13 || b.isbn || '', title: b.title, author: b.author }, ac.signal)
-        .then(d => (d && d.coverUrl) || this.coverFromOpenLibrary(b, ac.signal))
+      this.resolveCover(b, ac.signal)
         .then(accept)
         .catch(() => {})
         .then(() => { clearTimeout(timer); release(); });
     }
+  }
+
+  // Goodreads first via the proxy — most of this catalogue has no ISBN at all,
+  // so this is what puts a cover on the majority of the shelf, and Open
+  // Library is exactly where those covers were missing. Shared by the
+  // on-screen queue above and Export's bulk backfill so the two cannot drift.
+  resolveCover(b, signal) {
+    return this.metaFetch('/meta/cover', { isbn: b.isbn13 || b.isbn || '', title: b.title, author: b.author }, signal)
+      .then(d => (d && d.coverUrl) || this.coverFromOpenLibrary(b, signal));
+  }
+
+  // Returns whether anything was stored, so callers can skip a repaint.
+  acceptCover(b, url) {
+    if (!url) return false;
+    this.covers[b.id] = url;
+    // stage is an index into deco()'s candidate list, and storing a cover
+    // changes that list (a Goodreads one goes to the front). A stale index
+    // would then point at a candidate that already failed, or past the end —
+    // so a freshly resolved cover starts the chain over.
+    this.stage[b.id] = 0;
+    this.saveCovers();
+    return true;
   }
 
   // Unproxied fallback for a device with no sync code, or a proxy that is
@@ -1043,13 +1079,72 @@ class Component extends DCLogic {
     const d = this.deco(b); // reuse the exact URL this book is already rendering with
     if (!d.hasCover || !d.coverUrl) return;
     this.cachingCovers.add(b.id);
-    window.fetchImageBlob(d.coverUrl)
+    // Returns the chain so Export's backfill can await a book before moving on;
+    // the on-screen caller ignores it and stays fire-and-forget.
+    return window.fetchImageBlob(d.coverUrl)
       .then(blob => window.bookshelfDB.saveCover(b.id, blob).then(() => {
         this.offlineCovers[b.id] = window.memoryManager.createUrl(blob);
         this.forceUpdate();
       }))
       .catch(() => { /* stays network-only; will retry next session */ })
       .then(() => this.cachingCovers.delete(b.id));
+  }
+
+  // ── Bulk cover backfill, driven from Export ────────────────────────────
+  // componentDidUpdate only looks covers up for the ~80 books nearest the
+  // screen, which is what stops an idle shelf firing hundreds of provider
+  // requests by itself. This is the deliberate way to cover everything else:
+  // it walks the whole shelf, resolves anything with no cover, and pulls the
+  // image into IndexedDB so the shelf is complete offline as well.
+  //
+  // Its own driver rather than an extension of pump(): that queue has no
+  // notion of completion, and progress and cancellation are the entire point.
+  backfillCovers() {
+    const bf = this.backfill;
+    if (bf.running) { bf.cancel = true; this.forceUpdate(); return; }
+
+    // "Missing" means no offline image — a book can have a resolved URL and
+    // still need the bytes fetched.
+    const todo = (this.state.books || []).filter(b => !this.offlineCovers[b.id]);
+    if (!todo.length) { this.say('Every book already has its cover saved'); return; }
+
+    Object.assign(bf, { running: true, cancel: false, done: 0, failed: 0, total: todo.length });
+    this.forceUpdate();
+
+    let next = 0;
+    const worker = async () => {
+      while (!bf.cancel && next < todo.length) {
+        const b = todo[next++];
+        try {
+          if (!this.covers[b.id]) this.acceptCover(b, await this.resolveCover(b));
+          await this.maybeCacheCoverOffline(b);
+          if (!this.offlineCovers[b.id]) bf.failed++;
+        } catch (e) {
+          bf.failed++;
+        }
+        bf.done++;
+        this.tickBackfill();
+      }
+    };
+    // Three at a time: the same order of magnitude as pump()'s four, chosen so
+    // a backfill running in the background cannot starve the on-screen queue.
+    Promise.all([worker(), worker(), worker()]).then(() => {
+      const stopped = bf.cancel;
+      bf.running = false;
+      bf.cancel = false;
+      this.forceUpdate();
+      this.say(stopped
+        ? 'Stopped — ' + bf.done + ' of ' + bf.total + ' done'
+        : 'Covers done — ' + (bf.done - bf.failed) + ' of ' + bf.total
+          + (bf.failed ? ', ' + bf.failed + ' not found' : ''));
+    });
+  }
+
+  // Repainting on every book would thrash a 400-row list for no benefit; a
+  // counter that moves a few times a second reads as alive just the same.
+  tickBackfill() {
+    clearTimeout(this._bfTick);
+    this._bfTick = setTimeout(() => this.forceUpdate(), 220);
   }
 
   saveLocal() {
@@ -1994,16 +2089,23 @@ class Component extends DCLogic {
     });
 
     const selD = sel ? this.deco(sel) : null;
+    // Order matters as much as the cap below. What the reader is looking at
+    // goes in FIRST — the open list, then the open book — and the speculative
+    // prefetch for other screens follows. Filled the other way round, as it
+    // was, opening "Want to read" spent most of the 80 on the shelf page,
+    // "reading now" and every rail preview, and truncated the list actually on
+    // screen around its 40th book: covers stopped appearing partway down, and
+    // the only way to get one was to open that book — whose entry sat safely
+    // near the front of the set, which is exactly why that worked.
     const seen = new Map();
-    [...pool.slice(0, s.limit), ...readingRaw, ...wanted.slice(0, 14), ...(sel ? [sel] : [])]
+    if (railGroup) railGroup.full.forEach(b => seen.set(b.id, b));
+    (seriesMap[listKey] || []).forEach(b => seen.set(b.id, b));
+    if (sel) seen.set(sel.id, sel);
+    [...pool.slice(0, s.limit), ...readingRaw, ...wanted.slice(0, 14)]
       .forEach(b => seen.set(b.id, b));
     if (variant === 'rails') rails.forEach(g => g.books.forEach(d => { const b = books.find(x => x.id === d.id); if (b) seen.set(b.id, b); }));
-    if (railGroup) railGroup.full.forEach(b => seen.set(b.id, b));
-    // Same reasoning as railGroup above: without this, a series list beyond
-    // the first ~14 "wanted" books prefetched for the home screen got no
-    // cover lookup — live or offline — at all, ever, for as long as the
-    // list stayed open.
-    (seriesMap[listKey] || []).forEach(b => seen.set(b.id, b));
+    // The cap is what stops an idle shelf firing hundreds of provider lookups
+    // by itself; Export's backfill is the deliberate way to cover everything.
     this._visible = [...seen.values()].slice(0, 80);
 
     const full = !!this.props.fullscreen;
@@ -2146,6 +2248,17 @@ class Component extends DCLogic {
       },
       syncPush: () => this.syncPush(),
       syncPull: () => this.syncPull(),
+      coversMissing: books.filter(b => !this.offlineCovers[b.id]).length,
+      coversTotal: books.length,
+      backfillRunning: this.backfill.running,
+      backfillIdle: !this.backfill.running,
+      backfillLabel: this.backfill.running ? 'Stop' : 'Fetch all covers',
+      backfillProgress: this.backfill.total
+        ? this.backfill.done + ' / ' + this.backfill.total
+          + (this.backfill.failed ? ' · ' + this.backfill.failed + ' not found' : '')
+        : '',
+      hasBackfillProgress: this.backfill.total > 0,
+      doBackfill: () => this.backfillCovers(),
       buildId: BUILD_ID,
       updateBlurb: 'Reloads past the cache. Your shelf, notes and progress are untouched — they live in this device’s storage, not in the app file.',
       checkUpdate: () => this.checkUpdate(),
