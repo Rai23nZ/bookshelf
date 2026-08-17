@@ -117,7 +117,11 @@ const COVER_TTL = 30 * 24 * 60 * 60; // cover URLs are effectively immutable
 // (rather than requiring) an author match then handed the cover to whatever
 // popular book shared the title prefix. v3 entries hold covers from other
 // books outright.
-const META_CACHE_VERSION = 'v4';
+// v5: two fixes to the cover route, both able to have poisoned a v4 entry —
+// titleMatches() accepted a suffix that did not start a new word (so "Aliens"
+// took "Alien"'s jacket), and the providers were queried with the full title
+// including its subtitle, which returns nothing from Goodreads for a long one.
+const META_CACHE_VERSION = 'v5';
 
 // Cloudflare's fetch() sends NO User-Agent unless one is set, and Goodreads
 // sits behind CloudFront, which answers a UA-less request with a 403 error
@@ -217,11 +221,20 @@ async function fromOpenLibrary(q) {
   })).filter(x => x.title);
 }
 
+// Superscript digits are Unicode numbers, so the strip below keeps them and
+// "Alien³" normalises to "alien³" — a string no provider ever returns. Folded
+// to ASCII here, it becomes "alien3", one squeezed space away from Goodreads'
+// "Alien 3". See titleMatches().
+const SUPERSCRIPT_DIGITS = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9' };
+
 function normText(s) {
   // ё/е is folded because Goodreads and the shelf disagree about it constantly
   // ("Мария Семёнова" vs "Мария Семенова"), and that alone would fail an
   // otherwise exact author match.
-  return String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  return String(s || '').toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, c => SUPERSCRIPT_DIGITS[c])
+    .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
 
 // A leading article is dropped because the comparison below is anchored at the
@@ -229,6 +242,27 @@ function normText(s) {
 // "The Three Kingdoms. Luo Guanzhong" even though it is plainly the same book.
 function coreTitle(t) {
   return normText(String(t || '').replace(/[(\[:].*$/, '')).replace(/^(the|a|an) /, '');
+}
+
+// What is actually typed into a provider's search box, as opposed to what the
+// answer is then checked against. Goodreads' auto_complete is a search box and
+// a 140-character title with its full subtitle returns nothing at all from it:
+// "Empire of the Summer Moon: Quanah Parker and the Rise and Fall of the
+// Comanches, the Most Powerful Indian Tribe in American History" found no
+// cover for the shelf, while typing three words of it into Add a book found it
+// at once. The subtitle is dropped for the QUERY only — every result is still
+// matched against the full title, so a short stem cannot widen what is
+// accepted. Falls back to the whole title for one that is nothing but
+// subtitle.
+function searchTitle(title) {
+  const t = String(title || '')
+    // Goodreads' index has no superscripts, and it does not ignore them
+    // either: "Alien³" comes back with Ruby Dixon and Bukowski, "Alien3" with
+    // nothing at all, and "Alien 3" with the novelisation on the first line.
+    .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g, run => ' ' + run.replace(/./gu, c => SUPERSCRIPT_DIGITS[c]))
+    .replace(/\s+/g, ' ')
+    .trim();
+  return t.replace(/[(\[:].*$/, '').trim() || t;
 }
 
 // Providers title the same book differently ("Dune" vs "Dune (Dune, #1)"), so
@@ -258,12 +292,23 @@ function titleMatches(want, got) {
   ];
   for (const [a, b] of pairs) {
     if (!a || !b) continue;
-    if (a === b) return true;
+    // Spaces are squeezed out for the equality test so a numeral written two
+    // ways still lands: "Alien³" normalises to "alien3" and Goodreads' "Alien
+    // 3" to "alien 3", which are the same book by any reading.
+    if (a === b || a.replace(/ /g, '') === b.replace(/ /g, '')) return true;
     // Tolerate one side carrying an edition or series suffix the other lacks,
     // but not a bare prefix that happens to collide.
     const short = a.length <= b.length ? a : b;
     const long = a.length <= b.length ? b : a;
-    if (long.startsWith(short) && short.length >= Math.max(4, long.length * 0.5)) return true;
+    // The suffix has to begin a NEW word, and that word must not be a number.
+    // Without the first rule one trailing character swallowed a whole other
+    // book — "Alien", "Aliens" and "Alien³" are three separate Alan Dean
+    // Foster novelisations, same author, so the author check waves them
+    // through too, and all three took the jacket of whichever was most rated.
+    // Without the second, "Alien" still matched "Alien 3", which is how
+    // Goodreads spells the third of them.
+    if (long.startsWith(short + ' ') && !/^\d/.test(long.slice(short.length + 1))
+        && short.length >= Math.max(4, long.length * 0.5)) return true;
   }
   return false;
 }
@@ -331,7 +376,14 @@ function authorMatches(want, got) {
 async function goodreadsCover(title, author, isbn) {
   if (isbn) return fromGoodreads(isbn).catch(() => []);
   const firstAuthor = String(author || '').split(',')[0].trim();
-  const queries = firstAuthor ? [title + ' ' + firstAuthor, title] : [title];
+  // Subtitle-stripped stages are appended, not substituted: the full title is
+  // the more specific question and stays first, so a book whose subtitle
+  // Goodreads copes with is answered exactly as before. They collapse away
+  // entirely for a title that has no subtitle to drop.
+  const stem = searchTitle(title);
+  const queries = [...new Set(firstAuthor
+    ? [title + ' ' + firstAuthor, stem + ' ' + firstAuthor, stem]
+    : [title, stem])];
   // Issued together, not one after the other. Awaiting the first before
   // deciding whether to run the second would put two 5s provider budgets in
   // series, and the client's cover queue gives up at 9s — the fallback stage
@@ -342,9 +394,15 @@ async function goodreadsCover(title, author, isbn) {
     const hits = r.status === 'fulfilled' ? r.value : [];
     const ok = hits.filter(x => titleMatches(title, x.title)
       && (!firstAuthor || authorMatches(author, x.author)));
-    // Most-rated wins among what is left: that is the canonical edition rather
-    // than a box set or a reissue.
-    if (ok.length) return ok.sort((a, b) => (b.ratingsCount || 0) - (a.ratingsCount || 0));
+    // An exact title beats a merely tolerated one, and most-rated wins among
+    // equals — the canonical edition rather than a box set or a reissue. The
+    // first half matters for a family the title check cannot separate at all,
+    // because coreTitle() drops what distinguishes them: "The Sandman: Act I",
+    // "Act II" and "Act III" all reduce to "sandman", so on ratings alone the
+    // most popular volume answered for its two siblings as well.
+    const exact = normText(title);
+    const isExact = r => (normText(r.title) === exact ? 1 : 0);
+    if (ok.length) return ok.sort((a, b) => isExact(b) - isExact(a) || (b.ratingsCount || 0) - (a.ratingsCount || 0));
   }
   return [];
 }
@@ -353,6 +411,10 @@ async function goodreadsCover(title, author, isbn) {
 // need the author to disambiguate, so they keep the combined query.
 async function coverProviders(title, author, isbn, env) {
   const firstAuthor = String(author || '').split(',')[0].trim();
+  // Full title here, unlike the Goodreads stages above: these two are ordinary
+  // full-text searches that degrade with a long query rather than returning
+  // nothing, and dropping a subtitle is what makes two books in one series
+  // ("Alien: River of Pain", "Alien: Sea of Sorrows") look like one question.
   const wide = isbn || (title + (firstAuthor ? ' ' + firstAuthor : '')).trim();
   const settled = await Promise.allSettled([
     goodreadsCover(title, author, isbn),
@@ -485,9 +547,12 @@ async function handleMeta(request, env, origin, path) {
     const isbn = (params.get('isbn') || '').trim();
     const title = (params.get('title') || '').trim();
     const author = (params.get('author') || '').trim();
-    // An isbn is an exact handle; a title alone is a guess, so strip the
-    // subtitle the way the client used to before asking.
-    const q = isbn || (title.replace(/[:(].*$/, '').trim() + (author ? ' ' + author.split(',')[0] : '')).trim();
+    // Keyed on the FULL title, not the stem the providers are queried with:
+    // "The Sandman: Act I", "Act II" and "Act III" are three questions with
+    // three answers, and a stripped key handed all of them whichever was asked
+    // first. The stem belongs in the query, where a provider needs it short;
+    // it does not belong in the identity of the lookup.
+    const q = isbn || (title + (author ? ' ' + author.split(',')[0] : '')).trim();
     if (!q) return json({ error: 'nothing to look up' }, 400, origin);
     const key = 'meta:' + META_CACHE_VERSION + ':cover:' + await sha256hex(normText(q));
     // A miss is cached too: a book no provider has must not re-run three

@@ -80,6 +80,16 @@ input[type=range]{accent-color:var(--color-accent)}
 <div style="flex:1;animation:bt-in .22s ease both">
 
 <sc-if value="{{ isLibrary }}" hint-placeholder-val="{{ true }}">
+<!-- Pinned to the top of the shelf: the date, the search field, the shelf
+     filters and the "Reading now" card stay put while the rails scroll under
+     them. Sticky rather than fixed, unlike the bottom bar: this block sits at
+     the START of the scrolled content, so its own place in the flow is never
+     reached again once it is stuck, and sticky keeps it in the layout — a
+     fixed one would need its height duplicated as a spacer and re-measured
+     every time the card appears or disappears. An opaque background is what
+     makes it a lid rather than a smear; it is the shelf's own --color-bg, so
+     the seam is invisible until content passes under it. -->
+<div style="position:sticky;top:0;z-index:4;background:var(--color-bg)">
 <div style="padding:20px 18px 0">
 <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px">
 <div style="flex:1">
@@ -127,6 +137,7 @@ input[type=range]{accent-color:var(--color-accent)}
 </div>
 </div>
 </sc-if>
+</div>
 
 <sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ false }}">
 <div style="padding:0 18px;display:grid;grid-template-columns:1fr 1fr;gap:18px 14px">
@@ -711,7 +722,12 @@ const ROOT_SCREEN = 'library';
 // 3: the lookup was resolving some books to a different book's jacket
 // entirely — "The Secret" (Lee Child) got The Secret Garden — so anything
 // stored under epoch 2 is suspect.
-const COVER_EPOCH = 3;
+// 4: the Worker's title check accepted a suffix that didn't start a new word,
+// so "Alien", "Aliens" and "Alien³" all took one jacket. That mistake leaves a
+// signature — several books pointing at the SAME image — which is precise
+// enough to repair on its own, so this epoch drops only the collisions instead
+// of every Goodreads cover on the shelf.
+const COVER_EPOCH = 4;
 
 // ── Reading streak ────────────────────────────────────────────────────────
 // A day "counts" when reading progress was recorded on it, tracked as a list
@@ -1010,12 +1026,20 @@ class Component extends DCLogic {
   // affected, and re-fetching every cover would cost the user megabytes for
   // nothing. The IndexedDB image blob has to go with each one, because deco()
   // prefers an offline blob over anything a fresh lookup returns.
+  //
+  // Epoch 4 narrows that further still: its mistake is visible from here (two
+  // books wearing one jacket), so a device already on epoch 3 gives up only the
+  // handful of covers that collide rather than the whole shelf's worth of
+  // cached bytes. Anything older keeps the wider purge, whose damage is not
+  // something this side can spot.
   async migrateCovers() {
     let stored = 0;
     try { stored = +(localStorage.getItem(this.coverEpochKey) || 0); } catch (e) { return; }
     if (stored === COVER_EPOCH) return;
 
-    const suspect = Object.keys(this.covers).filter(id => /gr-assets\.com/.test(this.covers[id]));
+    const suspect = stored >= 3
+      ? this.sharedCoverIds()
+      : Object.keys(this.covers).filter(id => /gr-assets\.com/.test(this.covers[id]));
     suspect.forEach(id => { delete this.covers[id]; delete this.stage[id]; });
     this.saveCovers();
     try { localStorage.setItem(this.coverEpochKey, String(COVER_EPOCH)); } catch (e) { /* blocked */ }
@@ -1025,6 +1049,20 @@ class Component extends DCLogic {
     // straight back into offlineCovers, where deco() prefers them.
     if (!window.bookshelfDB) return;
     await Promise.all(suspect.map(id => window.bookshelfDB.deleteCover(+id).catch(() => {})));
+  }
+
+  // Ids whose cover URL is also some other book's cover URL. One image cannot
+  // be the jacket of two different books, and nothing here can tell which of
+  // them the lookup got right, so every id in a collision goes back for a
+  // fresh resolve. A genuine duplicate on the shelf just resolves to the same
+  // image again, which costs one lookup and changes nothing.
+  sharedCoverIds() {
+    const byUrl = {};
+    Object.keys(this.covers).forEach(id => {
+      const url = this.covers[id];
+      if (url) (byUrl[url] = byUrl[url] || []).push(id);
+    });
+    return Object.keys(byUrl).filter(url => byUrl[url].length > 1).reduce((all, url) => all.concat(byUrl[url]), []);
   }
 
   loadCovers() {
@@ -2138,7 +2176,11 @@ class Component extends DCLogic {
         // No " · " separator: the three pills have to share a 320px-wide
         // screen without clipping, and the dots alone cost ~50px of it.
         label: sh.label + ' ' + books.filter(b => b.shelf === sh.id).length,
-        ...this.pillStyle(s.shelf === sh.id),
+        // Deliberately never lit. These open a list rather than filtering the
+        // screen they sit on, so an "active" pill was describing nothing the
+        // reader could see — it only remembered which one was pressed last,
+        // which on a fresh shelf left "Want to read" glowing for no reason.
+        ...this.pillStyle(false),
         // These used to only set `s.shelf`, a value the rails home screen
         // (the deployed variant) never reads when deciding what to render —
         // so tapping "Read 297" visibly did nothing. Open the full list
@@ -2153,7 +2195,13 @@ class Component extends DCLogic {
       canLoadMore: (variant === 'shelf' || variant === 'editorial') && pool.length > s.limit,
       moreLabel: 'Show ' + Math.min(24, pool.length - s.limit) + ' more of ' + pool.length,
       loadMore: () => this.setState({ limit: s.limit + 24 }),
-      showNowCard: !!now && s.shelf !== 'currently-reading',
+      // The card is part of the pinned header now, so it may not come and go
+      // for reasons the screen doesn't show. Hiding it on the currently-reading
+      // shelf exists to stop it duplicating the list right beneath it, which
+      // only ever happens in the shelf/editorial grids — the rails home screen
+      // renders the same "Reading now" carousel whatever s.shelf says, and
+      // there the card would vanish purely because a pill was pressed.
+      showNowCard: !!now && (variant === 'rails' || s.shelf !== 'currently-reading'),
       now, openNow: () => this.goTab('reading'),
       openStats: () => this.goTab('stats'),
       streak, streakLabel: streak === 1 ? 'day in a row' : 'days in a row',

@@ -159,10 +159,17 @@ def from_open_library(q):
 NON_WORD_RE = re.compile(r'[^\w]+', re.UNICODE)
 
 
+# Superscript digits survive the strip below (they are Unicode numbers), so
+# "Alien³" would normalise to "alien³" — a string no provider ever returns.
+# Folded to ASCII it becomes "alien3", one squeezed space from "Alien 3".
+SUPERSCRIPT_DIGITS = str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹', '0123456789')
+
+
 def norm_text(s):
     # yo/ye folded: Goodreads and the shelf disagree about it constantly
     # ("Мария Семёнова" vs "Мария Семенова").
-    return NON_WORD_RE.sub(' ', str(s or '').lower().replace('ё', 'е')).strip()
+    folded = str(s or '').lower().replace('ё', 'е').translate(SUPERSCRIPT_DIGITS)
+    return NON_WORD_RE.sub(' ', folded).strip()
 
 
 LEAD_ARTICLE_RE = re.compile(r'^(the|a|an) ')
@@ -173,6 +180,23 @@ def core_title(t):
     # start: "Three Kingdoms" would otherwise fail against Goodreads' "The
     # Three Kingdoms. Luo Guanzhong".
     return LEAD_ARTICLE_RE.sub('', norm_text(re.sub(r'[(\[:].*$', '', str(t or ''))))
+
+
+def search_title(title):
+    """What is typed into a provider's search box, as opposed to what the
+    answer is checked against. Goodreads' auto_complete returns nothing for a
+    140-character title carrying its full subtitle, which is why "Empire of the
+    Summer Moon: Quanah Parker and the Rise and Fall of the Comanches, ..." had
+    no cover on the shelf while three words of it found the book in Add a book.
+    Results are still matched against the full title, so the short stem cannot
+    widen what is accepted. Mirrors searchTitle() in the worker."""
+    # Goodreads' index has no superscripts and does not ignore them either:
+    # "Alien³" returns Ruby Dixon and Bukowski, "Alien3" nothing at all, and
+    # "Alien 3" the novelisation on the first line.
+    t = re.sub(r'[⁰¹²³⁴⁵⁶⁷⁸⁹]+',
+               lambda m: ' ' + m.group(0).translate(SUPERSCRIPT_DIGITS), str(title or ''))
+    t = re.sub(r'\s+', ' ', t).strip()
+    return re.sub(r'[(\[:].*$', '', t).strip() or t
 
 
 def merge_key(r):
@@ -194,10 +218,19 @@ def title_matches(want, got):
     for a, b in pairs:
         if not a or not b:
             continue
-        if a == b:
+        # Spaces squeezed out for equality, so "Alien³" ("alien3") still equals
+        # Goodreads' "Alien 3".
+        if a == b or a.replace(' ', '') == b.replace(' ', ''):
             return True
         short, long = (a, b) if len(a) <= len(b) else (b, a)
-        if long.startswith(short) and len(short) >= max(4, len(long) * 0.5):
+        # The suffix has to begin a NEW word, and that word must not be a
+        # number. One trailing character was enough for "Alien", "Aliens" and
+        # "Alien³" — three separate Alan Dean Foster novelisations — to match
+        # each other and share one jacket; without the number rule "Alien"
+        # still matched "Alien 3", which is how Goodreads spells the third.
+        if (long.startswith(short + ' ')
+                and not long[len(short) + 1:][:1].isdigit()
+                and len(short) >= max(4, len(long) * 0.5)):
             return True
     return False
 
@@ -247,7 +280,13 @@ def goodreads_cover(title, author, isbn):
         except Exception:
             return []
     first_author = str(author or '').split(',')[0].strip()
-    queries = [title + ' ' + first_author, title] if first_author else [title]
+    # Subtitle-stripped stages are appended, not substituted: the full title is
+    # the more specific question and stays first, and the extra stages collapse
+    # away for a title with no subtitle to drop.
+    stem = search_title(title)
+    queries = ([title + ' ' + first_author, stem + ' ' + first_author, stem]
+               if first_author else [title, stem])
+    queries = list(dict.fromkeys(queries))
     # Issued together, not one after the other: in series the two 5s provider
     # budgets would exceed the client's 9s cover-queue timeout, so the fallback
     # stage would die on exactly the books it exists to rescue. Preference is
@@ -261,7 +300,13 @@ def goodreads_cover(title, author, isbn):
         ok = [r for r in hits if title_matches(title, r['title'])
               and (not first_author or author_matches(author, r['author']))]
         if ok:
-            ok.sort(key=lambda r: r.get('ratingsCount') or 0, reverse=True)
+            # An exact title beats a merely tolerated one, most-rated wins
+            # among equals. The first half is what separates a family
+            # core_title() cannot: "The Sandman: Act I", "Act II" and "Act III"
+            # all reduce to "sandman", so on ratings alone the most popular
+            # volume answered for its siblings too.
+            exact = norm_text(title)
+            ok.sort(key=lambda r: (norm_text(r['title']) == exact, r.get('ratingsCount') or 0), reverse=True)
             return ok
     return []
 
@@ -270,6 +315,10 @@ def cover_providers(title, author, isbn):
     """Open Library and Google Books do not have the summary problem and need
     the author to disambiguate, so they keep the combined query."""
     first_author = str(author or '').split(',')[0].strip()
+    # Full title here, unlike the Goodreads stages: these two are ordinary
+    # full-text searches that degrade with a long query rather than returning
+    # nothing, and dropping a subtitle would make two books in one series
+    # ("Alien: River of Pain", "Alien: Sea of Sorrows") one question.
     wide = isbn or (title + ((' ' + first_author) if first_author else '')).strip()
     # Google Books and Open Library go to the pool; Goodreads runs inline
     # because goodreads_cover() submits its own two queries to that same pool,
@@ -391,8 +440,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         if parsed.path == '/meta/cover':
             isbn, title, author = get('isbn'), get('title'), get('author')
-            q = isbn or (re.sub(r'[:(].*$', '', title).strip()
-                         + ((' ' + author.split(',')[0]) if author else '')).strip()
+            # Keyed on the FULL title, not the stem the providers are queried
+            # with: "The Sandman: Act I/II/III" are three questions with three
+            # answers, and a stripped key handed all of them the first one.
+            q = isbn or (title + ((' ' + author.split(',')[0]) if author else '')).strip()
             if not q:
                 return self._json({'error': 'nothing to look up'}, 400)
 
