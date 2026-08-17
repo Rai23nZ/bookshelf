@@ -200,7 +200,7 @@ input[type=range]{accent-color:var(--color-accent)}
 <div style="font-size:11px;color:var(--color-neutral-600)">{{ g.count }}</div>
 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-neutral-500);margin-left:-2px"><path d="M9 5l7 7-7 7"></path></svg>
 </div>
-<div class="hidescroll" style="display:flex;gap:12px;overflow-x:auto;padding:0 18px 4px">
+<div class="hidescroll" data-rail="{{ g.key }}" style="display:flex;gap:12px;overflow-x:auto;padding:0 18px 4px">
 <sc-for list="{{ g.books }}" as="b" hint-placeholder-count="5">
 <div onClick="{{ b.open }}" style="flex:none;width:96px;cursor:pointer">
 <div style="position:relative;width:96px;height:144px;border-radius:9px;overflow:hidden;background:{{ b.ph }};box-shadow:var(--shadow-sm);margin-bottom:7px">
@@ -863,6 +863,8 @@ class Component extends DCLogic {
   // Scroll offset a back navigation should land on, consumed once by
   // resetScrollOnScreenChange. 0 means "new screen, start at the top".
   pendingScroll = 0;
+  // Same, per rail key, for the shelf's horizontal carousels.
+  pendingRails = null;
   requested = new Set();
   queue = [];
   inflight = 0;
@@ -1277,12 +1279,28 @@ class Component extends DCLogic {
     // navigation. Scrolling a long list, opening a book and pressing back used
     // to dump the reader at the top of the list with their place lost.
     const target = this.pendingScroll || 0;
+    const rails = this.pendingRails;
     this.pendingScroll = 0;
+    this.pendingRails = null;
     el.scrollTop = target;
+    this.restoreRails(rails);
     // Covers finish loading after this runs and can grow the content, so the
     // first assignment may have been clamped against a shorter list. Re-apply
     // once the frame has settled.
-    if (target) requestAnimationFrame(() => { if (el.scrollTop < target) el.scrollTop = target; });
+    if (target || rails) requestAnimationFrame(() => {
+      if (el.scrollTop < target) el.scrollTop = target;
+      this.restoreRails(rails);
+    });
+  }
+
+  restoreRails(rails) {
+    if (!rails) return;
+    document.querySelectorAll('[data-rail]').forEach(el => {
+      const want = rails[el.getAttribute('data-rail')];
+      // Only ever push a rail further right: re-applying after layout settles
+      // must not undo a restore that already landed.
+      if (want && el.scrollLeft < want) el.scrollLeft = want;
+    });
   }
 
   getScroller() {
@@ -1378,7 +1396,20 @@ class Component extends DCLogic {
   // history invariant exists to prevent.
   navEntry() {
     const el = this.getScroller();
-    return { patch: this.navSnapshot(), scrollTop: el ? el.scrollTop : 0 };
+    return { patch: this.navSnapshot(), scrollTop: el ? el.scrollTop : 0, rails: this.railOffsets() };
+  }
+
+  // The shelf's carousels scroll horizontally in their own containers, and the
+  // library screen is torn down while a book is open, so their scrollLeft dies
+  // with it. Captured by rail key rather than by position for the reason given
+  // on `key` in renderVals.
+  railOffsets() {
+    if (typeof document === 'undefined') return {};
+    const out = {};
+    document.querySelectorAll('[data-rail]').forEach(el => {
+      if (el.scrollLeft) out[el.getAttribute('data-rail')] = el.scrollLeft;
+    });
+    return out;
   }
 
   pushScreen(patch) {
@@ -1394,6 +1425,7 @@ class Component extends DCLogic {
     // rebuilt for the restored screen; setting scrollTop here would land on
     // the outgoing markup and be thrown away.
     this.pendingScroll = prev.scrollTop || 0;
+    this.pendingRails = prev.rails || null;
     this.setState(prev.patch);
   }
 
@@ -1424,7 +1456,7 @@ class Component extends DCLogic {
     // rather than at the top.
     const rootEntry = () => {
       const base = this.navStack[0];
-      return { patch: { ...base.patch, screen: ROOT_SCREEN }, scrollTop: base.scrollTop };
+      return { ...base, patch: { ...base.patch, screen: ROOT_SCREEN } };
     };
 
     if (id === ROOT_SCREEN) {
@@ -1823,6 +1855,11 @@ class Component extends DCLogic {
       }))
     ].filter(g => g.full.length);
     const rails = railGroups.map(g => ({
+      // Identifies this carousel's horizontal scroll offset across a
+      // drill-down and back — see navEntry(). Index would do until a rail
+      // appears or disappears (finishing a book empties "Reading now"), at
+      // which point every offset would land on the wrong rail.
+      key: g.key,
       title: g.title,
       count: g.full.length + (g.full.length === 1 ? ' book' : ' books'),
       books: g.full.slice(0, RAIL_PREVIEW).map(b => this.deco(b)),
