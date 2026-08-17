@@ -32,6 +32,7 @@ OUT = os.path.join(ROOT, 'pwa', 'index.html')
 
 APP_UUID = 'a7dfff90-c9a5-4dbd-9bc5-23f18950d196'
 MARKER = '/* __SUPPORT_LAYER__ */'
+BUILD_MARKER = '__BUILD_ID__'
 
 
 def read(path):
@@ -45,6 +46,22 @@ def main():
 
     app = read(APP)
     support = read(SUPPORT)
+
+    # ── 0. build id ───────────────────────────────────────────────────────
+    # Shown in the app's Export screen: installed as a PWA there is no address
+    # bar, so this is the only way to tell which build is running.
+    #
+    # A hash of the sources rather than a timestamp, on purpose. The gzip below
+    # uses mtime=0 so that rebuilding unchanged sources yields a byte-identical
+    # file and no git diff; a clock reading would change the output on every
+    # run and destroy that. Hashed BEFORE substitution, so the value is a
+    # function of the sources alone.
+    count = app.count(BUILD_MARKER)
+    if count != 1:
+        sys.exit('build: expected exactly one %s in %s, found %d'
+                 % (BUILD_MARKER, os.path.relpath(APP, ROOT), count))
+    build_id = hashlib.sha256((app + support).encode('utf-8')).hexdigest()[:8]
+    app = app.replace(BUILD_MARKER, build_id)
 
     # ── 1. app payload ────────────────────────────────────────────────────
     # Find the manifest by its tag rather than a fixed offset: editing the
@@ -96,7 +113,10 @@ def main():
         sys.exit('build: support layer missing from output')
     if MARKER in written:
         sys.exit('build: marker still present in output')
+    if BUILD_MARKER in written:
+        sys.exit('build: %s still present in output' % BUILD_MARKER)
 
+    print('build   %s' % build_id)
     print('app     %6d chars  sha %s' % (len(app), hashlib.sha256(app.encode()).hexdigest()[:12]))
     print('support %6d chars  sha %s' % (len(support), hashlib.sha256(support.encode()).hexdigest()[:12]))
     print('output  %6d bytes -> %s' % (os.path.getsize(OUT), os.path.relpath(OUT, ROOT)))

@@ -542,6 +542,19 @@ Download CSV for Goodreads
 <div style="font-family:var(--font-heading);font-size:15px;margin-bottom:9px">Keep the code private</div>
 <div style="font-size:12.5px;line-height:1.6;color:var(--color-neutral-700)">The code is the only thing protecting your data — anyone who has it can read and overwrite your shelf. Treat it like a password: use the generated one, don’t post it anywhere, and paste it on your other devices to share the same shelf.</div>
 </div>
+
+<h2 style="font-family:var(--font-heading);font-size:22px;margin:22px 0 4px">This build</h2>
+<div style="font-size:13px;color:var(--color-neutral-600);margin-bottom:12px">Installed as an app there is no address bar, so this is how you tell whether an update arrived.</div>
+<div style="border-radius:24px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);padding:16px;margin-bottom:14px">
+<div style="display:flex;align-items:center;gap:12px">
+<div style="flex:1;min-width:0">
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:4px">Build</div>
+<div style="font-family:ui-monospace,monospace;font-size:15px;color:var(--color-text)">{{ buildId }}</div>
+</div>
+<button onClick="{{ checkUpdate }}" style="flex:none;height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--color-neutral-300);background:var(--color-bg);color:var(--color-text);font-family:var(--font-body);font-weight:600;font-size:13px;cursor:pointer">Check for update</button>
+</div>
+<div style="font-size:11.5px;line-height:1.5;color:var(--color-neutral-600);margin-top:11px">{{ updateBlurb }}</div>
+</div>
 </div>
 </sc-if>
 
@@ -659,6 +672,14 @@ const SYNC_URL_FALLBACK = 'https://bookshelf-sync.cloudflare-uncommon.workers.de
 function syncUrl() {
   return (window.bookshelfSync && window.bookshelfSync.url) || SYNC_URL_FALLBACK;
 }
+
+// Replaced by build/build.py with a hash of the two sources. Deliberately a
+// content hash and not a timestamp: build.py gzips with mtime=0 so that
+// rebuilding unchanged sources produces an identical file and no git diff, and
+// a clock reading would destroy that. Shown in Export so an installed app —
+// which has no address bar and no reload button — can be told apart from the
+// version it replaced.
+const BUILD_ID = '__BUILD_ID__';
 
 // The tab the back button unwinds to before letting the app close.
 const ROOT_SCREEN = 'library';
@@ -1224,6 +1245,27 @@ class Component extends DCLogic {
     }).catch(err => {
       this.setState({ syncStatus: 'Download failed — ' + err.message });
     });
+  }
+
+  // sw.js is network-first for HTML, so a deploy normally arrives on its own at
+  // the next launch. This is for when it visibly has not — inside an installed
+  // PWA there is no address bar and no way to force the issue.
+  //
+  // Deliberately does NOT delete the caches: dropping the shell would leave the
+  // app with nothing to open offline if the fetch then failed. Re-fetching
+  // index.html past the HTTP cache is enough, because the service worker's
+  // network-first handler stores whatever comes back, and the reload serves it.
+  checkUpdate() {
+    if (!navigator.onLine) { this.say('No connection — try again when you are online'); return; }
+    this.say('Checking for an update…');
+    const jobs = [fetch('./index.html', { cache: 'reload' }).catch(() => {})];
+    if ('serviceWorker' in navigator) {
+      jobs.push(navigator.serviceWorker.getRegistrations()
+        .then(rs => Promise.all(rs.map(r => r.update().catch(() => {}))))
+        .catch(() => {}));
+    }
+    // flushSave() runs on beforeunload, so the reload cannot lose an edit.
+    Promise.all(jobs).then(() => setTimeout(() => location.reload(), 300));
   }
 
   scheduleSave() {
@@ -2104,6 +2146,9 @@ class Component extends DCLogic {
       },
       syncPush: () => this.syncPush(),
       syncPull: () => this.syncPull(),
+      buildId: BUILD_ID,
+      updateBlurb: 'Reloads past the cache. Your shelf, notes and progress are untouched — they live in this device’s storage, not in the app file.',
+      checkUpdate: () => this.checkUpdate(),
       openAdd: () => this.pushScreen({ screen: 'add' }),
       addTabs: [['search', 'Search'], ['manual', 'Manual']].map(([id, label]) => ({
         label, ...this.pillStyle(s.addTab === id), go: () => this.setState({ addTab: id })
