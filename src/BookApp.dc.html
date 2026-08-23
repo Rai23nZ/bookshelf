@@ -525,6 +525,20 @@ Download CSV for Goodreads
 <div style="font-size:12.5px;line-height:1.6;color:var(--color-neutral-700)">Goodreads’ own column set, comma-separated, UTF-8. Decimal ratings are rounded to whole stars; fields with commas are quoted; each row keeps its shelf (read, currently-reading, to-read) so nothing lands on the wrong pile. Re-importing the same file is safe.</div>
 </div>
 
+<h2 style="font-family:var(--font-heading);font-size:22px;margin:0 0 4px">Import from CSV</h2>
+<div style="font-size:13px;color:var(--color-neutral-600);margin-bottom:14px">Read in the file the button above produces, or a library export from Goodreads itself.</div>
+<div style="border-radius:24px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);padding:16px;margin-bottom:22px">
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:8px">How to apply it</div>
+<div style="display:flex;gap:8px;margin-bottom:14px">
+<sc-for list="{{ csvModes }}" as="m" hint-placeholder-count="2">
+<button onClick="{{ m.pick }}" style="flex:1;height:38px;border-radius:999px;border:1px solid {{ m.bd }};background:{{ m.bg }};color:{{ m.fg }};font-family:var(--font-body);font-weight:600;font-size:11.5px;cursor:pointer">{{ m.label }}</button>
+</sc-for>
+</div>
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:8px">Choose a CSV file</div>
+<input type="file" accept="text/csv,.csv" onChange="{{ onImportCsvFile }}" style="width:100%;font-family:var(--font-body);font-size:12px;color:var(--color-neutral-700)">
+<div style="font-size:11.5px;line-height:1.6;color:var(--color-neutral-600);margin-top:10px">Each row is matched to a book by ISBN, or by title and author. {{ csvModeHint }}</div>
+</div>
+
 <h2 style="font-family:var(--font-heading);font-size:22px;margin:0 0 4px">Backup</h2>
 <div style="font-size:13px;color:var(--color-neutral-600);margin-bottom:14px">A full copy — ratings, notes, shelves <em>and</em> reading progress. The CSV above deliberately keeps Goodreads’ columns, so it can’t carry your progress percentages; this file can.</div>
 <div style="border-radius:24px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);padding:16px;margin-bottom:22px">
@@ -912,7 +926,7 @@ class Component extends DCLogic {
     lastProgressId: null, toast: '', readDays: [],
     syncCode: '', syncStatus: '', syncUrl: '', lastSync: null,
     addTab: 'search', addQuery: '', addExternal: [], addExternalLoading: false,
-    mTitle: '', mAuthor: '', mIsbn: '', mShelf: 'to-read'
+    mTitle: '', mAuthor: '', mIsbn: '', mShelf: 'to-read', csvMode: 'merge'
   };
 
   covers = {};
@@ -1267,6 +1281,195 @@ class Component extends DCLogic {
       try { parsed = JSON.parse(String(reader.result)); } catch (err) { this.say('Could not read that file'); return; }
       // Accept both the wrapped backup file and a bare snapshot.
       this.restoreSnapshot(parsed && parsed.data ? parsed.data : parsed, 'file');
+    };
+    reader.onerror = () => this.say('Could not read that file');
+    reader.readAsText(file);
+  }
+
+  // ── Import from a Goodreads-style CSV ───────────────────────────────────
+  // Two sources look the same to this: the file "Download CSV for
+  // Goodreads" produces, and a real library export from Goodreads itself.
+  // The two don't use identical headers (this app writes "Shelves", real
+  // Goodreads writes "Exclusive Shelf"), so every field is read through a
+  // short alias list rather than one exact name.
+  csvCols() {
+    return {
+      title: ['Title'], author: ['Author', 'Author l-f'],
+      isbn13: ['ISBN13', 'ISBN-13'], isbn: ['ISBN'],
+      rating: ['My Rating', 'Rating'], avgRating: ['Average Rating'],
+      pages: ['Number of Pages', 'Pages'],
+      dateRead: ['Date Read'], dateAdded: ['Date Added'],
+      shelf: ['Exclusive Shelf', 'Shelves', 'Shelf', 'Status'],
+      series: ['Bookshelves'], note: ['My Review', 'Private Notes', 'Review', 'Notes']
+    };
+  }
+
+  // A real parser rather than a `.split(',')` — fields with a comma are
+  // quoted, quotes inside a field are doubled, and ISBNs are wrapped as
+  // ="1234567890" (Excel's trick for keeping a leading zero as text).
+  parseCsv(text) {
+    const s = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
+    const rows = [];
+    let row = [], field = '', inQ = false;
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (inQ) {
+        if (c === '"' && s[i + 1] === '"') { field += '"'; i++; }
+        else if (c === '"') inQ = false;
+        else field += c;
+      } else if (c === '"') inQ = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else if (c !== '\r') field += c;
+    }
+    if (field || row.length) { row.push(field); rows.push(row); }
+    if (!rows.length) return [];
+    const header = rows[0].map(h => h.trim());
+    // Drop fully-blank rows (a trailing newline reads as one otherwise).
+    return rows.slice(1).filter(r => r.some(c => c.trim() !== '')).map(r => {
+      const o = {};
+      header.forEach((h, i) => { o[h] = (r[i] || '').trim(); });
+      return o;
+    });
+  }
+
+  cleanIsbn(v) { return String(v || '').replace(/^="?/, '').replace(/"+$/, '').replace(/[^0-9Xx]/g, ''); }
+
+  // "2023/05/14" (Goodreads) or "2023-05-14" (this app) -> "2023-05-14".
+  normDate(v) {
+    const m = String(v || '').trim().match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+    return m ? m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0') : '';
+  }
+
+  // Loose match key: case, accents and punctuation shouldn't decide whether
+  // a CSV row is "the same book" as one already on the shelf.
+  normText(v) {
+    return String(v || '').toLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  }
+
+  pickCol(row, keys) {
+    for (const k of keys) { if (row[k]) return row[k]; }
+    return '';
+  }
+
+  // Parses the CSV and matches each row against the shelf by ISBN13, then
+  // ISBN, then title+author. `extraPool` is an optional second set of books
+  // to also match against besides the pristine catalog — mergeCsv() passes
+  // its own already-imported extras here so that re-running the same file
+  // updates them in place instead of piling up duplicates; importCsv()
+  // leaves it out and matches only against the catalog, since a "replace"
+  // rebuilds the extras list from this file's rows anyway. Shared by both
+  // apply modes below; what happens with the result is the only difference
+  // between them.
+  buildCsvSlim(text, extraPool) {
+    if (!this._catalog) { this.say('Still loading — try again in a moment'); return null; }
+    const rows = this.parseCsv(text);
+    if (!rows.length) { this.say('That file has no rows to import'); return null; }
+    const cols = this.csvCols();
+    const shelfIds = SHELVES.map(sh => sh.id);
+    const byIsbn13 = {}, byIsbn = {}, byTitleAuthor = {};
+    const index = b => {
+      if (b.isbn13) byIsbn13[b.isbn13] = b;
+      if (b.isbn) byIsbn[b.isbn] = b;
+      const key = this.normText(b.title) + '|' + this.normText(b.author);
+      if (key !== '|') byTitleAuthor[key] = b;
+    };
+    this._catalog.forEach(index);
+    // Indexed after the catalog, so a collision resolves to the user's own
+    // extra rather than a same-titled catalog book.
+    (extraPool || []).forEach(index);
+
+    const slim = [];
+    let matched = 0, added = 0, skipped = 0;
+    rows.forEach((row, i) => {
+      const title = this.pickCol(row, cols.title).trim();
+      if (!title) { skipped++; return; }
+      const author = this.pickCol(row, cols.author).trim() || 'Unknown';
+      const isbn13 = this.cleanIsbn(this.pickCol(row, cols.isbn13));
+      const isbn = this.cleanIsbn(this.pickCol(row, cols.isbn));
+      const ratingRaw = parseInt(this.pickCol(row, cols.rating), 10);
+      const myRating = Number.isFinite(ratingRaw) ? Math.min(5, Math.max(0, ratingRaw)) : 0;
+      const dateRead = this.normDate(this.pickCol(row, cols.dateRead));
+      const dateAdded = this.normDate(this.pickCol(row, cols.dateAdded)) || new Date().toISOString().slice(0, 10);
+      const note = this.pickCol(row, cols.note);
+      let shelf = this.pickCol(row, cols.shelf).trim().toLowerCase();
+      // No usable shelf column (a plain personal history export, say) —
+      // infer it from whatever else the row does have.
+      if (!shelfIds.includes(shelf)) shelf = (dateRead || myRating) ? 'read' : 'to-read';
+
+      const found = (isbn13 && byIsbn13[isbn13]) || (isbn && byIsbn[isbn])
+        || byTitleAuthor[this.normText(title) + '|' + this.normText(author)];
+
+      if (found) {
+        matched++;
+        slim.push({ id: found.id, myRating, shelf, dateRead, note });
+      } else {
+        added++;
+        const pagesRaw = parseInt(this.pickCol(row, cols.pages), 10);
+        const avgRaw = parseFloat(this.pickCol(row, cols.avgRating));
+        const nb = {
+          id: Date.now() + i, title, author,
+          series: this.pickCol(row, cols.series), isbn, isbn13,
+          myRating, avgRating: Number.isFinite(avgRaw) ? avgRaw : null,
+          pages: Number.isFinite(pagesRaw) ? pagesRaw : null,
+          dateRead, dateAdded, shelf,
+          readCount: shelf === 'read' ? 1 : 0, note, _new: true
+        };
+        slim.push({ id: nb.id, myRating, shelf, dateRead, note, _new: nb });
+      }
+    });
+
+    if (!slim.length) { this.say('No usable rows in that file — need at least a title in each'); return null; }
+    return { slim, matched, added, skipped };
+  }
+
+  csvResultMsg(r, tail) {
+    return 'Imported ' + (r.matched + r.added) + ' books — ' + r.matched + ' matched, ' + r.added + ' new'
+      + (r.skipped ? ', ' + r.skipped + ' skipped' : '') + tail;
+  }
+
+  // "Replace shelf": matches only against the pristine catalog, then goes
+  // through the same restoreSnapshot() path as a JSON backup — so, same as
+  // that, it rebuilds the whole shelf from this file rather than layering
+  // on top of what's there. Meant for a shelf that has nothing on it yet.
+  importCsv(text) {
+    const r = this.buildCsvSlim(text);
+    if (!r) return false;
+    const ok = this.restoreSnapshot({
+      v: 1, slim: r.slim, progress: {}, goal: this.state.goal, shelf: this.state.shelf,
+      lastProgressId: null, readDays: this.state.readDays || []
+    }, 'CSV file');
+    if (ok) this.say(this.csvResultMsg(r, ''));
+    return ok;
+  }
+
+  // "Add to shelf": also matches against whatever the shelf has already
+  // picked up from an earlier CSV import, and only touches the books this
+  // file actually mentions — everything else on the shelf is left exactly
+  // as it is.
+  mergeCsv(text) {
+    const extras = (this.state.books || []).filter(b => b._new);
+    const r = this.buildCsvSlim(text, extras);
+    if (!r) return false;
+    const byId = {};
+    r.slim.forEach(x => { byId[x.id] = x; });
+    const newExtras = r.slim.filter(x => x._new).map(x => x._new);
+    const books = (this.state.books || []).map(b => byId[b.id]
+      ? { ...b, myRating: byId[b.id].myRating, shelf: byId[b.id].shelf, dateRead: byId[b.id].dateRead, note: byId[b.id].note || '' }
+      : b);
+    this.setState({ books: [...newExtras, ...books] });
+    this.say(this.csvResultMsg(r, ' — rest of your shelf untouched'));
+    return true;
+  }
+
+  onImportCsvFile(e) {
+    const file = e.target && e.target.files && e.target.files[0];
+    if (!file) return;
+    const mode = this.state.csvMode === 'replace' ? 'replace' : 'merge';
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result);
+      if (mode === 'replace') this.importCsv(text); else this.mergeCsv(text);
     };
     reader.onerror = () => this.say('Could not read that file');
     reader.readAsText(file);
@@ -2272,6 +2475,14 @@ class Component extends DCLogic {
       doExport: () => this.exportCsv(),
       doBackup: () => this.doBackup(),
       onRestoreFile: e => this.onRestoreFile(e),
+      onImportCsvFile: e => this.onImportCsvFile(e),
+      csvModes: [
+        { id: 'merge', label: 'Add to shelf', ...this.pillStyle(s.csvMode !== 'replace'), pick: () => this.setState({ csvMode: 'merge' }) },
+        { id: 'replace', label: 'Replace shelf', ...this.pillStyle(s.csvMode === 'replace'), pick: () => this.setState({ csvMode: 'replace' }) }
+      ],
+      csvModeHint: s.csvMode === 'replace'
+        ? 'Rebuilds the whole shelf from this file. Anything not in it — including books added since your last CSV import — reverts to how it started.'
+        : 'Matches rows to what\u2019s already on the shelf and updates those; anything unmatched is added. The rest of the shelf is left alone.',
       syncCode: s.syncCode,
       syncStatus: s.syncStatus || this.syncLabel(s.lastSync) || 'Not synced yet on this device.',
       syncBlurb: 'Keeps your shelf on a server, so it survives clearing the browser and can be picked up on another device. Same code = same shelf.',
