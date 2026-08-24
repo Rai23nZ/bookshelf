@@ -1,8 +1,44 @@
 diff --git a/src/BookApp.dc.html b/src/BookApp.dc.html
-index 24c2269..2bbbb48 100644
+index 24c2269..f5ab337 100644
 --- a/src/BookApp.dc.html
 +++ b/src/BookApp.dc.html
-@@ -525,6 +525,20 @@ Download CSV for Goodreads
+@@ -146,9 +146,10 @@ input[type=range]{accent-color:var(--color-accent)}
+ <div style="position:relative;aspect-ratio:2/3;border-radius:14px;overflow:hidden;background:{{ b.ph }};box-shadow:var(--shadow-md);margin-bottom:9px">
+ <div style="position:absolute;inset:0;padding:12px;display:flex;flex-direction:column;justify-content:space-between">
+ <div style="font-family:var(--font-heading);font-size:14px;line-height:1.16;color:rgba(255,255,255,.95)">{{ b.short }}</div>
+-<div style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.72)">{{ b.authorShort }}</div>
++<div style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.72);padding-right:52px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ b.authorShort }}</div>
+ </div>
+ <sc-if value="{{ b.hasCover }}" hint-placeholder-val="{{ false }}"><img src="{{ b.coverUrl }}" data-bid="{{ b.id }}" onError="{{ hideImg }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></sc-if>
++<sc-if value="{{ b.rated }}" hint-placeholder-val="{{ true }}"><div style="position:absolute;right:5px;bottom:5px;height:19px;padding:0 7px;border-radius:999px;background:rgba(32,30,29,.78);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;gap:3px">{{ b.rating }} ★</div></sc-if>
+ </div>
+ <div style="font-family:var(--font-heading);font-size:13.5px;line-height:1.2;margin-bottom:3px">{{ b.short }}</div>
+ <div style="font-size:11.5px;color:var(--color-neutral-600);margin-bottom:6px">{{ b.authorShort }}</div>
+@@ -187,9 +188,10 @@ input[type=range]{accent-color:var(--color-accent)}
+ <div style="position:relative;aspect-ratio:2/3;border-radius:14px;overflow:hidden;background:{{ b.ph }};box-shadow:var(--shadow-md);margin-bottom:9px">
+ <div style="position:absolute;inset:0;padding:12px;display:flex;flex-direction:column;justify-content:space-between">
+ <div style="font-family:var(--font-heading);font-size:14px;line-height:1.16;color:rgba(255,255,255,.95)">{{ b.short }}</div>
+-<div style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.72)">{{ b.authorShort }}</div>
++<div style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.72);padding-right:52px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ b.authorShort }}</div>
+ </div>
+ <sc-if value="{{ b.hasCover }}" hint-placeholder-val="{{ false }}"><img src="{{ b.coverUrl }}" data-bid="{{ b.id }}" onError="{{ hideImg }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></sc-if>
++<sc-if value="{{ b.rated }}" hint-placeholder-val="{{ true }}"><div style="position:absolute;right:5px;bottom:5px;height:19px;padding:0 7px;border-radius:999px;background:rgba(32,30,29,.78);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;gap:3px">{{ b.rating }} ★</div></sc-if>
+ </div>
+ <div style="font-family:var(--font-heading);font-size:13.5px;line-height:1.2;margin-bottom:3px">{{ b.short }}</div>
+ <div style="font-size:11.5px;color:var(--color-neutral-600);margin-bottom:6px">{{ b.authorShort }}</div>
+@@ -217,9 +219,10 @@ input[type=range]{accent-color:var(--color-accent)}
+ <div style="position:relative;width:96px;height:144px;border-radius:9px;overflow:hidden;background:{{ b.ph }};box-shadow:var(--shadow-sm);margin-bottom:7px">
+ <div style="position:absolute;inset:0;padding:9px;display:flex;flex-direction:column;justify-content:space-between">
+ <div style="font-family:var(--font-heading);font-size:11px;line-height:1.18;color:rgba(255,255,255,.95)">{{ b.short }}</div>
+-<div style="font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.72)">{{ b.authorShort }}</div>
++<div style="font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.72);padding-right:44px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ b.authorShort }}</div>
+ </div>
+ <sc-if value="{{ b.hasCover }}" hint-placeholder-val="{{ false }}"><img src="{{ b.coverUrl }}" data-bid="{{ b.id }}" onError="{{ hideImg }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></sc-if>
++<sc-if value="{{ b.rated }}" hint-placeholder-val="{{ true }}"><div style="position:absolute;right:5px;bottom:5px;height:19px;padding:0 7px;border-radius:999px;background:rgba(32,30,29,.78);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;gap:3px">{{ b.rating }} ★</div></sc-if>
+ </div>
+ <div style="font-size:11px;line-height:1.25;color:var(--color-neutral-700);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">{{ b.short }}</div>
+ </div>
+@@ -525,6 +528,20 @@ Download CSV for Goodreads
  <div style="font-size:12.5px;line-height:1.6;color:var(--color-neutral-700)">Goodreads’ own column set, comma-separated, UTF-8. Decimal ratings are rounded to whole stars; fields with commas are quoted; each row keeps its shelf (read, currently-reading, to-read) so nothing lands on the wrong pile. Re-importing the same file is safe.</div>
  </div>
  
@@ -23,7 +59,7 @@ index 24c2269..2bbbb48 100644
  <h2 style="font-family:var(--font-heading);font-size:22px;margin:0 0 4px">Backup</h2>
  <div style="font-size:13px;color:var(--color-neutral-600);margin-bottom:14px">A full copy — ratings, notes, shelves <em>and</em> reading progress. The CSV above deliberately keeps Goodreads’ columns, so it can’t carry your progress percentages; this file can.</div>
  <div style="border-radius:24px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);padding:16px;margin-bottom:22px">
-@@ -912,7 +926,7 @@ class Component extends DCLogic {
+@@ -912,7 +929,7 @@ class Component extends DCLogic {
      lastProgressId: null, toast: '', readDays: [],
      syncCode: '', syncStatus: '', syncUrl: '', lastSync: null,
      addTab: 'search', addQuery: '', addExternal: [], addExternalLoading: false,
@@ -32,7 +68,7 @@ index 24c2269..2bbbb48 100644
    };
  
    covers = {};
-@@ -1272,6 +1286,195 @@ class Component extends DCLogic {
+@@ -1272,6 +1289,224 @@ class Component extends DCLogic {
      reader.readAsText(file);
    }
  
@@ -45,20 +81,31 @@ index 24c2269..2bbbb48 100644
 +  csvCols() {
 +    return {
 +      title: ['Title'], author: ['Author', 'Author l-f'],
-+      isbn13: ['ISBN13', 'ISBN-13'], isbn: ['ISBN'],
++      isbn13: ['ISBN13', 'ISBN-13'], isbn: ['ISBN'], isbn10: ['ISBN10', 'ISBN-10'],
++      asin: ['ASIN'],
 +      rating: ['My Rating', 'Rating'], avgRating: ['Average Rating'],
 +      pages: ['Number of Pages', 'Pages'],
 +      dateRead: ['Date Read'], dateAdded: ['Date Added'],
 +      shelf: ['Exclusive Shelf', 'Shelves', 'Shelf', 'Status'],
-+      series: ['Bookshelves'], note: ['My Review', 'Private Notes', 'Review', 'Notes']
++      series: ['Series', 'Bookshelves'], note: ['My Review', 'Private Notes', 'Review', 'Notes']
 +    };
 +  }
 +
-+  // A real parser rather than a `.split(',')` — fields with a comma are
-+  // quoted, quotes inside a field are doubled, and ISBNs are wrapped as
-+  // ="1234567890" (Excel's trick for keeping a leading zero as text).
++  // A real parser rather than a `.split(',')` — fields with a comma (or a
++  // semicolon, see below) are quoted, quotes inside a field are doubled,
++  // and ISBNs are wrapped as ="1234567890" (Excel's trick for keeping a
++  // leading zero as text).
++  //
++  // The delimiter isn't always a comma: spreadsheet apps in locales where
++  // comma is the decimal separator (common with a Cyrillic-locale Excel,
++  // for instance) export CSVs with semicolons instead, so it's sniffed
++  // from the header row rather than assumed.
 +  parseCsv(text) {
 +    const s = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
++    const firstLine = s.split(/\r?\n/, 1)[0] || '';
++    const commas = (firstLine.match(/,/g) || []).length;
++    const semis = (firstLine.match(/;/g) || []).length;
++    const delim = semis > commas ? ';' : ',';
 +    const rows = [];
 +    let row = [], field = '', inQ = false;
 +    for (let i = 0; i < s.length; i++) {
@@ -68,7 +115,7 @@ index 24c2269..2bbbb48 100644
 +        else if (c === '"') inQ = false;
 +        else field += c;
 +      } else if (c === '"') inQ = true;
-+      else if (c === ',') { row.push(field); field = ''; }
++      else if (c === delim) { row.push(field); field = ''; }
 +      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
 +      else if (c !== '\r') field += c;
 +    }
@@ -89,6 +136,22 @@ index 24c2269..2bbbb48 100644
 +  normDate(v) {
 +    const m = String(v || '').trim().match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
 +    return m ? m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0') : '';
++  }
++
++  // Different exporters disagree about which column ("ISBN", "ISBN10",
++  // "ISBN13") holds which code — one export seen in the wild puts the
++  // 13-digit code under a plain "ISBN" header with no "ISBN13" column at
++  // all. Rather than trust the header name literally, every ISBN-ish
++  // column is read and then sorted by the length of its cleaned value.
++  pickIsbns(row, cols) {
++    const candidates = [
++      this.cleanIsbn(this.pickCol(row, cols.isbn13)),
++      this.cleanIsbn(this.pickCol(row, cols.isbn)),
++      this.cleanIsbn(this.pickCol(row, cols.isbn10))
++    ].filter(Boolean);
++    const isbn13 = candidates.find(v => v.replace(/[^0-9]/g, '').length === 13) || '';
++    const isbn = candidates.find(v => v.length === 10) || '';
++    return { isbn13, isbn };
 +  }
 +
 +  // Loose match key: case, accents and punctuation shouldn't decide whether
@@ -135,9 +198,10 @@ index 24c2269..2bbbb48 100644
 +      const title = this.pickCol(row, cols.title).trim();
 +      if (!title) { skipped++; return; }
 +      const author = this.pickCol(row, cols.author).trim() || 'Unknown';
-+      const isbn13 = this.cleanIsbn(this.pickCol(row, cols.isbn13));
-+      const isbn = this.cleanIsbn(this.pickCol(row, cols.isbn));
-+      const ratingRaw = parseInt(this.pickCol(row, cols.rating), 10);
++      const { isbn13, isbn } = this.pickIsbns(row, cols);
++      // parseFloat, not parseInt — ratings like "4.30" carry a fraction the
++      // app displays and bars its progress-style rating meter on.
++      const ratingRaw = parseFloat(this.pickCol(row, cols.rating));
 +      const myRating = Number.isFinite(ratingRaw) ? Math.min(5, Math.max(0, ratingRaw)) : 0;
 +      const dateRead = this.normDate(this.pickCol(row, cols.dateRead));
 +      const dateAdded = this.normDate(this.pickCol(row, cols.dateAdded)) || new Date().toISOString().slice(0, 10);
@@ -160,6 +224,7 @@ index 24c2269..2bbbb48 100644
 +        const nb = {
 +          id: Date.now() + i, title, author,
 +          series: this.pickCol(row, cols.series), isbn, isbn13,
++          asin: this.pickCol(row, cols.asin),
 +          myRating, avgRating: Number.isFinite(avgRaw) ? avgRaw : null,
 +          pages: Number.isFinite(pagesRaw) ? pagesRaw : null,
 +          dateRead, dateAdded, shelf,
@@ -228,7 +293,42 @@ index 24c2269..2bbbb48 100644
    // ── Cloud sync (Cloudflare Pages Function + KV) ────────────────────────
    get syncCodeKey() { return 'bookshelf.synccode.v1'; }
  
-@@ -2272,6 +2475,14 @@ class Component extends DCLogic {
+@@ -1872,15 +2107,20 @@ class Component extends DCLogic {
+   }
+ 
+   exportCsv() {
+-    const H = ['Title', 'Author', 'ISBN', 'ISBN13', 'My Rating', 'Average Rating', 'Number of Pages', 'Date Read', 'Date Added', 'Shelves', 'Bookshelves', 'My Review'];
++    const H = ['Title', 'Author', 'ISBN', 'ISBN13', 'ASIN', 'My Rating', 'Average Rating', 'Number of Pages', 'Date Read', 'Date Added', 'Shelves', 'Bookshelves', 'Series', 'My Review'];
+     const q = v => {
+       const s = v == null ? '' : String(v);
+       return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+     };
+     const rows = (this.state.books || []).map(b => [
+-      b.title, b.author, b.isbn ? '="' + b.isbn + '"' : '', b.isbn13 ? '="' + b.isbn13 + '"' : '',
++      b.title, b.author, b.isbn ? '="' + b.isbn + '"' : '', b.isbn13 ? '="' + b.isbn13 + '"' : '', b.asin || '',
+       b.myRating ? Math.round(b.myRating) : '', b.avgRating || '', b.pages || '',
+-      b.dateRead || '', b.dateAdded || '', b.shelf, b.series || '', b.note || ''
++      b.dateRead || '', b.dateAdded || '', b.shelf,
++      // "Bookshelves" is left empty — it's a Goodreads-import convenience
++      // column this app doesn't use for anything, and used to be
++      // repurposed to carry series here, which just meant a re-import
++      // mislabeled series as a shelf tag. Series has its own column now.
++      '', b.series || '', b.note || ''
+     ].map(q).join(','));
+     const csv = '\ufeff' + [H.join(','), ...rows].join('\r\n');
+     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+@@ -1923,6 +2163,10 @@ class Component extends DCLogic {
+             progress: { ...s.progress, [b.id]: 100 },
+             lastProgressId: null
+           }));
++          // Straight into the book's own card rather than back to the shelf
++          // — finishing is exactly when a rating/review is top of mind, and
++          // otherwise it takes a second trip to open the book and fill it in.
++          this.pushScreen({ screen: 'book', selId: b.id });
+           this.say('Finished — moved to Read, dated today');
+         }
+       };
+@@ -2272,6 +2516,14 @@ class Component extends DCLogic {
        doExport: () => this.exportCsv(),
        doBackup: () => this.doBackup(),
        onRestoreFile: e => this.onRestoreFile(e),
