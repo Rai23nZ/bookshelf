@@ -1562,6 +1562,20 @@ class Component extends DCLogic {
     return verb + ' ' + d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + ', ' + time + '.';
   }
 
+  // Auto-push after a reading-progress edit (slider drag, Finish today, or a
+  // rating set right after finishing) — the same upload the Export screen's
+  // manual "Upload" button performs, just triggered on the user's behalf
+  // instead of waiting for a trip to that menu. Debounced so a dragged
+  // slider's stream of onInput events collapses into one PUT once motion
+  // settles, rather than one per tick. Silently a no-op with no sync code
+  // configured yet — this must never nag someone who hasn't set up sync.
+  scheduleSyncPush() {
+    const code = (this.state.syncCode || '').trim();
+    if (code.length < 16 || !this._ready) return;
+    clearTimeout(this._syncPushTimer);
+    this._syncPushTimer = setTimeout(() => this.syncPush(), 1500);
+  }
+
   syncPush() {
     const code = (this.state.syncCode || '').trim();
     if (code.length < 16) { this.setState({ syncStatus: 'Enter a sync code first (16+ characters).' }); return; }
@@ -2154,10 +2168,13 @@ class Component extends DCLogic {
       return {
         ...d, pctNum: pct, pct: pct + '%',
         progressLabel: 'page ' + Math.round(pages * pct / 100) + ' of ' + pages,
-        onProgress: e => this.setState(this.withReadDay({
-          progress: { ...s.progress, [b.id]: +e.target.value },
-          lastProgressId: b.id
-        })),
+        onProgress: e => {
+          this.setState(this.withReadDay({
+            progress: { ...s.progress, [b.id]: +e.target.value },
+            lastProgressId: b.id
+          }));
+          this.scheduleSyncPush();
+        },
         finish: () => {
           const today = new Date().toISOString().slice(0, 10);
           this.setState(this.withReadDay({
@@ -2165,6 +2182,7 @@ class Component extends DCLogic {
             progress: { ...s.progress, [b.id]: 100 },
             lastProgressId: null
           }));
+          this.scheduleSyncPush();
           // Straight into the book's own card rather than back to the shelf
           // — finishing is exactly when a rating/review is top of mind, and
           // otherwise it takes a second trip to open the book and fill it in.
@@ -2173,9 +2191,20 @@ class Component extends DCLogic {
         }
       };
     });
+    // Order for the "Reading now" screen: whichever book the user last moved
+    // a slider on always leads, regardless of how far along it is — that's
+    // the one they're mid-session with right now. Everything else falls back
+    // to how far along it is, furthest-read first, so a book close to being
+    // finished doesn't get buried under ones barely started.
+    reading.sort((a, b) => {
+      if (a.id === s.lastProgressId) return -1;
+      if (b.id === s.lastProgressId) return 1;
+      return b.pctNum - a.pctNum;
+    });
     // The hero card follows the book you touched last, falling back to the
     // first still-reading book when nothing has been edited yet (or when the
-    // last-edited one has since been finished and left the shelf).
+    // last-edited one has since been finished and left the shelf) — the sort
+    // above already puts that same book at reading[0], so this stays in sync.
     const now = reading.find(b => b.id === s.lastProgressId) || reading[0] || null;
 
     const byYear = {};
@@ -2493,6 +2522,7 @@ class Component extends DCLogic {
       onRating: e => {
         const v = +e.target.value;
         this.setState({ books: books.map(x => x.id === s.selId ? { ...x, myRating: v } : x) });
+        this.scheduleSyncPush();
       },
       onNote: e => {
         const v = e.target.value;
