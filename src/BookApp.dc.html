@@ -2161,7 +2161,7 @@ class Component extends DCLogic {
     for (let i = 0; i < flat.length; i += 3) shelfRows.push({ key: i, books: flat.slice(i, i + 3) });
 
     const readingRaw = books.filter(b => b.shelf === 'currently-reading');
-    const reading = readingRaw.map(b => {
+    let reading = readingRaw.map(b => {
       const d = this.deco(b);
       const pct = s.progress[b.id] ?? 0;
       const pages = b.pages || 320;
@@ -2170,24 +2170,20 @@ class Component extends DCLogic {
         progressLabel: 'page ' + Math.round(pages * pct / 100) + ' of ' + pages,
         onProgress: e => {
           // Value updates on every tick so the % label tracks the finger
-          // live, but lastProgressId — the thing that decides sort order
-          // below — is deliberately debounced rather than set here. Setting
-          // it immediately used to reorder the list on the very first tick
-          // of a drag: the row would jump out from under the user's finger
-          // mid-gesture, and since the DOM slider at that screen position
-          // then belonged to a different book, the still-active touch kept
-          // feeding it input events — silently bleeding progress into the
-          // wrong book (visible as a second book's % changing on its own).
-          // Committing the reorder only once ticks stop arriving for a
-          // beat means every row stays put for the full length of a
-          // continuous drag, and only settles into its new spot once
-          // nothing should still be touching it.
+          // live. lastProgressId — which decides sort order below — is
+          // deliberately debounced rather than set here, and while a drag
+          // is active (this._activeDrag) the order is frozen outright: see
+          // the freeze block below for why setting it immediately, or even
+          // just letting the pct-based sort react to the live value, isn't
+          // safe mid-gesture.
           this.setState(this.withReadDay({
             progress: { ...s.progress, [b.id]: +e.target.value }
           }));
           this.scheduleSyncPush();
+          this._activeDrag = b.id;
           clearTimeout(this._progressCommitTimer);
           this._progressCommitTimer = setTimeout(() => {
+            this._activeDrag = null;
             this.setState({ lastProgressId: b.id });
           }, 600);
         },
@@ -2212,16 +2208,36 @@ class Component extends DCLogic {
     // the one they're mid-session with right now. Everything else falls back
     // to how far along it is, furthest-read first, so a book close to being
     // finished doesn't get buried under ones barely started.
-    reading.sort((a, b) => {
-      if (a.id === s.lastProgressId) return -1;
-      if (b.id === s.lastProgressId) return 1;
-      return b.pctNum - a.pctNum;
-    });
+    //
+    // Debouncing lastProgressId (above) wasn't enough on its own: the pct
+    // fallback compares LIVE percentages, so dragging a book's value past a
+    // neighbour's still reshuffled the list mid-drag — rows (and the touch
+    // events landing on them) swapping under the user's finger the instant
+    // the dragged value crossed another row's. So while a drag is active,
+    // skip resorting entirely and reuse the exact order from just before it
+    // started; only recompute for real once the gesture has settled.
+    if (this._activeDrag && this._frozenOrder) {
+      const byId = new Map(reading.map(b => [b.id, b]));
+      const known = this._frozenOrder
+        .filter(id => byId.has(id))
+        .map(id => { const row = byId.get(id); byId.delete(id); return row; });
+      // Anything not in the frozen snapshot (e.g. a book that just moved
+      // onto this shelf mid-drag) is appended rather than dropped.
+      reading = known.concat([...byId.values()]);
+    } else {
+      reading.sort((a, b) => {
+        if (a.id === s.lastProgressId) return -1;
+        if (b.id === s.lastProgressId) return 1;
+        return b.pctNum - a.pctNum;
+      });
+      this._frozenOrder = reading.map(b => b.id);
+    }
     // The hero card follows the book you touched last, falling back to the
     // first still-reading book when nothing has been edited yet (or when the
     // last-edited one has since been finished and left the shelf) — the sort
     // above already puts that same book at reading[0], so this stays in sync.
     const now = reading.find(b => b.id === s.lastProgressId) || reading[0] || null;
+
 
     const byYear = {};
     books.filter(b => b.shelf === 'read' && b.dateRead).forEach(b => {
