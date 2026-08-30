@@ -2169,11 +2169,27 @@ class Component extends DCLogic {
         ...d, pctNum: pct, pct: pct + '%',
         progressLabel: 'page ' + Math.round(pages * pct / 100) + ' of ' + pages,
         onProgress: e => {
+          // Value updates on every tick so the % label tracks the finger
+          // live, but lastProgressId — the thing that decides sort order
+          // below — is deliberately debounced rather than set here. Setting
+          // it immediately used to reorder the list on the very first tick
+          // of a drag: the row would jump out from under the user's finger
+          // mid-gesture, and since the DOM slider at that screen position
+          // then belonged to a different book, the still-active touch kept
+          // feeding it input events — silently bleeding progress into the
+          // wrong book (visible as a second book's % changing on its own).
+          // Committing the reorder only once ticks stop arriving for a
+          // beat means every row stays put for the full length of a
+          // continuous drag, and only settles into its new spot once
+          // nothing should still be touching it.
           this.setState(this.withReadDay({
-            progress: { ...s.progress, [b.id]: +e.target.value },
-            lastProgressId: b.id
+            progress: { ...s.progress, [b.id]: +e.target.value }
           }));
           this.scheduleSyncPush();
+          clearTimeout(this._progressCommitTimer);
+          this._progressCommitTimer = setTimeout(() => {
+            this.setState({ lastProgressId: b.id });
+          }, 600);
         },
         finish: () => {
           const today = new Date().toISOString().slice(0, 10);
