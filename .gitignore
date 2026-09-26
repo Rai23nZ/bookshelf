@@ -1,3 +1,6 @@
 .claude/
 CLAUDE.md
 csv-import.patch
+
+# ---- Brag plugin
+brag-output*/
