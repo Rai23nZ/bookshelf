@@ -310,6 +310,10 @@ input[type=range]{accent-color:var(--color-accent)}
 <input type="text" value="{{ sel.series }}" onInput="{{ onSeries }}" placeholder="Not in a series" style="width:100%;box-sizing:border-box;height:44px;border-radius:999px;border:1px solid var(--color-neutral-300);background:var(--color-neutral-100);padding:0 16px;font-family:var(--font-body);font-size:13.5px;color:var(--color-text);outline:0">
 <div style="font-size:11px;color:var(--color-neutral-600);margin:6px 0 16px">Found automatically. Change it only if it is wrong or missing, written as “Name #number”.</div>
 
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:8px">Year</div>
+<input type="text" inputmode="numeric" maxlength="4" value="{{ sel.yearText }}" onInput="{{ onYear }}" placeholder="Unknown" style="width:100%;box-sizing:border-box;height:44px;border-radius:999px;border:1px solid var(--color-neutral-300);background:var(--color-neutral-100);padding:0 16px;font-family:var(--font-body);font-size:13.5px;color:var(--color-text);outline:0">
+<div style="font-size:11px;color:var(--color-neutral-600);margin:6px 0 16px">{{ sel.yearHint }}</div>
+
 <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:8px">Note</div>
 <textarea value="{{ sel.note }}" onInput="{{ onNote }}" placeholder="What stayed with you?" style="width:100%;box-sizing:border-box;min-height:88px;border-radius:20px;border:1px solid var(--color-neutral-300);background:var(--color-neutral-100);padding:13px 15px;font-family:var(--font-body);font-size:13.5px;color:var(--color-text);resize:none;outline:0"></textarea>
 <div style="font-size:11px;color:var(--color-neutral-600);margin-top:6px">Exports to Goodreads as “My Review”.</div>
@@ -1063,7 +1067,10 @@ class Component extends DCLogic {
       name = e.s;
       no = e.n;
     }
-    return { name, no: no == null ? null : no, year: b.year || (e && e.y) || null };
+    // The user's own year (`yearSet`) beats everything and can be empty, which
+    // means "unknown" rather than "look it up".
+    const year = b.yearSet ? (b.year || null) : (b.year || (e && e.y) || null);
+    return { name, no: no == null ? null : no, year };
   }
 
   seriesText(b) {
@@ -1072,12 +1079,15 @@ class Component extends DCLogic {
     return seriesLabel(si.name, si.no);
   }
 
-  // Series with at least two books in the library, each in release order. The
-  // ordering is year first and then number, so a prequel novella published
-  // later sits after the book it precedes, as the reader meets them. A book
-  // whose year is unknown goes after the dated ones — a consistent key, unlike
-  // "compare years when both exist", which is not a total order and would make
-  // the list reshuffle as lookups arrive.
+  // Series with at least two books in the library, each in reading order. The
+  // ordering is number first and then year. Year first was tried and is wrong:
+  // Jack Reacher #11 "Bad Luck and Trouble" came out in 1984 on the shelf's
+  // data, and Will Robie #3 "The Target" in 2004, because the year of a book's
+  // first publication can belong to an earlier edition or to an unrelated book
+  // with the same title. The number is what the series itself says. A book
+  // with no number goes after the numbered ones, ordered by year among
+  // themselves. Both are a consistent key, unlike "compare whichever exists",
+  // which is not a total order and would reshuffle the list as lookups arrive.
   buildSeries(books) {
     const groups = new Map();
     books.forEach(b => {
@@ -1095,9 +1105,10 @@ class Component extends DCLogic {
       // Providers spell one series several ways; the spelling most of the
       // library already uses is the one worth showing.
       g.name = Object.keys(g.spellings).sort((x, y) => g.spellings[y] - g.spellings[x])[0];
-      g.items.sort((x, y) => (x.year || 9999) - (y.year || 9999)
-        || (x.no == null ? 1e9 : x.no) - (y.no == null ? 1e9 : y.no)
+      g.items.sort((x, y) => (x.no == null ? 1e9 : x.no) - (y.no == null ? 1e9 : y.no)
+        || (x.year || 9999) - (y.year || 9999)
         || x.b.title.localeCompare(y.b.title));
+      this.flagOddYears(g.items);
       g.total = g.items.length;
       g.read = g.items.filter(it => it.b.shelf === 'read').length;
       g.reading = g.items.filter(it => it.b.shelf === 'currently-reading').length;
@@ -1109,6 +1120,32 @@ class Component extends DCLogic {
     return out.sort((x, y) => x.bucket - y.bucket || x.name.localeCompare(y.name));
   }
 
+  // Sets `yearOk` on each item of a series already in number order. A year that
+  // breaks the run (Jack Reacher #11 dated 1984 between 1998 and 2004 books)
+  // is a lookup that landed on another edition or another book, and printing
+  // it is worse than leaving it off. The keepers are the longest stretch of
+  // years that never goes backwards as the numbers rise; everything outside it
+  // is hidden. Needs three dated books to judge anything and ignores books with
+  // no number, which have no place in the sequence to compare. A year the user
+  // typed is shown whatever it says and is left out of the comparison on both
+  // sides: it is neither judged nor an anchor, or one deliberate correction
+  // would push its correct neighbours out.
+  flagOddYears(items) {
+    items.forEach(it => { it.yearOk = true; });
+    const seq = items.filter(it => it.year && it.no != null && !it.b.yearSet);
+    if (seq.length < 3) return;
+    const len = [], prev = [];
+    seq.forEach((it, i) => {
+      len[i] = 1; prev[i] = -1;
+      for (let j = 0; j < i; j++) {
+        if (seq[j].year <= it.year && len[j] + 1 > len[i]) { len[i] = len[j] + 1; prev[i] = j; }
+      }
+    });
+    const keep = new Set();
+    for (let i = len.indexOf(Math.max(...len)); i >= 0; i = prev[i]) keep.add(seq[i]);
+    seq.forEach(it => { if (!keep.has(it)) it.yearOk = false; });
+  }
+
   // ── Series / release-year lookup ──────────────────────────────────────
   // Whether a book is still worth asking the Worker about. Everything is, once;
   // after that only an answer that was thin: one with a provider down (a day),
@@ -1116,7 +1153,8 @@ class Component extends DCLogic {
   // possible (a day), or no year at all (two weeks).
   needsInfo(b) {
     if (this.infoRequested.has(b.id)) return false;
-    if (b.series && b.year) return false; // came from a search hit that already had both
+    // Came from a search hit that already had both, or the year was typed in.
+    if (b.series && (b.year || b.yearSet)) return false;
     const e = this.metaFor(b);
     if (!e) return true;
     const age = Date.now() - e.at;
@@ -1498,6 +1536,7 @@ class Component extends DCLogic {
     const slim = (books || []).map(b => ({
       id: b.id, myRating: b.myRating, shelf: b.shelf, dateRead: b.dateRead, note: b.note,
       series: b.seriesSet ? b.series : undefined, seriesSet: b.seriesSet || undefined,
+      year: b.yearSet ? (b.year || null) : undefined, yearSet: b.yearSet || undefined,
       _new: b._new ? b : undefined
     }));
     return { v: 1, slim, progress, goal, shelf, lastProgressId, readDays: readDays || [], updatedAt: Date.now() };
@@ -1513,7 +1552,8 @@ class Component extends DCLogic {
     const merged = catalog.map(b => byId[b.id]
       ? {
         ...b, myRating: byId[b.id].myRating, shelf: byId[b.id].shelf, dateRead: byId[b.id].dateRead, note: byId[b.id].note || '',
-        ...(byId[b.id].seriesSet ? { series: String(byId[b.id].series || ''), seriesSet: true } : {})
+        ...(byId[b.id].seriesSet ? { series: String(byId[b.id].series || ''), seriesSet: true } : {}),
+        ...(byId[b.id].yearSet ? { year: +byId[b.id].year || null, yearSet: true } : {})
       }
       : b);
     return {
@@ -2628,10 +2668,15 @@ class Component extends DCLogic {
       return {
         ...d,
         orderLabel: it.no != null ? '#' + it.no : '',
-        byline: d.authorShort + (it.year ? ' · ' + it.year : ''),
+        byline: d.authorShort + (it.year && it.yearOk ? ' · ' + it.year : ''),
         statusLabel: st.label, statusBg: st.bg, statusInk: st.ink
       };
     }) : [];
+    // The book page shows the year even when the series screen hides it, and
+    // says why, so a wrong one can be corrected where it can be seen.
+    const selYear = sel ? this.seriesInfo(sel).year : null;
+    let selYearOdd = false;
+    if (sel) seriesGroups.forEach(g => g.items.forEach(it => { if (it.b.id === sel.id && !it.yearOk) selYearOdd = true; }));
     const listSegs = listGroup ? listGroup.items.map(it => ({ bg: segBg(it.b.shelf) })) : [];
     const listTitle = listGroup ? listGroup.name : '';
     const listSubtitle = listGroup
@@ -2873,6 +2918,10 @@ class Component extends DCLogic {
         dateReadLabel: this.fmtDate(sel.dateRead),
         dateAddedLabel: this.fmtDate(sel.dateAdded),
         pagesLabel: sel.pages || '—',
+        yearText: selYear ? String(selYear) : '',
+        yearHint: selYearOdd
+          ? 'Doesn’t fit the other books in its series, so it is hidden there. Correct it if it is wrong.'
+          : 'Year of first publication, found automatically. Change it only if it is wrong.',
         readCount: sel.readCount || 1,
         note: sel.note
       } : {},
@@ -2889,6 +2938,14 @@ class Component extends DCLogic {
       // The manual fallback for when the lookup finds nothing or the wrong
       // thing. `seriesSet` is what makes it stick over a looked-up value, and
       // lets an empty field mean "not in a series" instead of "unset".
+      onYear: e => {
+        // Digits only, four at most; empty means "unknown". `yearSet` is what
+        // makes it stick over a looked-up value and survive a restore.
+        const digits = e.target.value.replace(/\D/g, '').slice(0, 4);
+        const v = digits ? +digits : null;
+        this.setState({ books: books.map(x => x.id === s.selId ? { ...x, year: v, yearSet: true } : x) });
+        this.scheduleSyncPush();
+      },
       onSeries: e => {
         const v = e.target.value;
         this.setState({ books: books.map(x => x.id === s.selId ? { ...x, series: v, seriesSet: true } : x) });
