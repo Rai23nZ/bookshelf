@@ -121,7 +121,10 @@ const COVER_TTL = 30 * 24 * 60 * 60; // cover URLs are effectively immutable
 // titleMatches() accepted a suffix that did not start a new word (so "Aliens"
 // took "Alien"'s jacket), and the providers were queried with the full title
 // including its subtitle, which returns nothing from Goodreads for a long one.
-const META_CACHE_VERSION = 'v5';
+// v6: search hits now carry series, seriesNo and year. A v5 search entry has
+// none of them, and the Add screen would quietly file every book found through
+// it as a standalone.
+const META_CACHE_VERSION = 'v6';
 
 // Cloudflare's fetch() sends NO User-Agent unless one is set, and Goodreads
 // sits behind CloudFront, which answers a UA-less request with a 403 error
@@ -153,6 +156,18 @@ function upgradeGoodreadsCover(url) {
   return s.replace(/\._S[XY]\d+_\./, '._SY475_.');
 }
 
+// Goodreads titles a book in a series "Memory Man (Amos Decker, #1)" and keeps
+// the bare "Memory Man" in a separate field. The suffix is the only place a
+// series name and its number reach this app at all: no other provider returns
+// either one. A range ("#1-3") is a box set, a different object from any one
+// book in it, and a bracket with no "#" is a subtitle or an edition note — in
+// both cases it is no answer to "which series is this book in".
+function parseSeriesSuffix(fullTitle) {
+  const m = String(fullTitle || '').match(/\(([^()]+?),\s*#\s*([^()]+?)\)\s*$/);
+  if (!m || !/^\d+(\.\d+)?$/.test(m[2].trim())) return { series: '', seriesNo: null };
+  return { series: m[1].trim(), seriesNo: parseFloat(m[2]) };
+}
+
 async function fromGoodreads(q) {
   const url = 'https://www.goodreads.com/book/auto_complete?format=json&q=' + encodeURIComponent(q);
   // Throw rather than return [] on a bad status: a provider that quietly
@@ -173,6 +188,8 @@ async function fromGoodreads(q) {
     // ratings where the book it summarises has tens of thousands.
     ratingsCount: d.ratingsCount || 0,
     coverUrl: upgradeGoodreadsCover(d.imageUrl),
+    // Read off the full title, not the bare one the line above prefers.
+    ...parseSeriesSuffix(d.title),
     source: 'goodreads'
   })).filter(x => x.title);
 }
@@ -204,7 +221,7 @@ async function fromGoogleBooks(q, key) {
 }
 
 async function fromOpenLibrary(q) {
-  const url = 'https://openlibrary.org/search.json?limit=10&fields=title,author_name,isbn,cover_i,number_of_pages_median&q='
+  const url = 'https://openlibrary.org/search.json?limit=10&fields=title,author_name,isbn,cover_i,number_of_pages_median,first_publish_year&q='
     + encodeURIComponent(q);
   const res = await metaFetch(url);
   if (!res.ok) throw new Error('open library http ' + res.status);
@@ -217,6 +234,10 @@ async function fromOpenLibrary(q) {
     pages: d.number_of_pages_median || null,
     avgRating: null,
     coverUrl: d.cover_i ? 'https://covers.openlibrary.org/b/id/' + d.cover_i + '-M.jpg' : '',
+    // The WORK's first publication, not this edition's: a 2019 reissue of a
+    // 2015 novel must not sort after its own sequel. Google Books only knows
+    // the edition's date, which is why it is deliberately not read for this.
+    year: d.first_publish_year || null,
     source: 'openlibrary'
   })).filter(x => x.title);
 }
@@ -323,10 +344,10 @@ function mergeResults(lists) {
       const key = mergeKey(r);
       const seen = byKey.get(key);
       if (!seen) { byKey.set(key, { ...r }); continue; }
-      for (const field of ['isbn', 'isbn13', 'coverUrl', 'author']) {
+      for (const field of ['isbn', 'isbn13', 'coverUrl', 'author', 'series']) {
         if (!seen[field] && r[field]) seen[field] = r[field];
       }
-      for (const field of ['pages', 'avgRating', 'ratingsCount']) {
+      for (const field of ['pages', 'avgRating', 'ratingsCount', 'seriesNo', 'year']) {
         if (seen[field] == null && r[field] != null) seen[field] = r[field];
       }
     }
@@ -391,19 +412,46 @@ async function goodreadsCover(title, author, isbn) {
   // still by query order, not by whichever answers first.
   const settled = await Promise.allSettled(queries.map(q => fromGoodreads(q)));
   for (const r of settled) {
-    const hits = r.status === 'fulfilled' ? r.value : [];
-    const ok = hits.filter(x => titleMatches(title, x.title)
-      && (!firstAuthor || authorMatches(author, x.author)));
-    // An exact title beats a merely tolerated one, and most-rated wins among
-    // equals — the canonical edition rather than a box set or a reissue. The
-    // first half matters for a family the title check cannot separate at all,
-    // because coreTitle() drops what distinguishes them: "The Sandman: Act I",
-    // "Act II" and "Act III" all reduce to "sandman", so on ratings alone the
-    // most popular volume answered for its two siblings as well.
-    const exact = normText(title);
-    const isExact = r => (normText(r.title) === exact ? 1 : 0);
-    if (ok.length) return ok.sort((a, b) => isExact(b) - isExact(a) || (b.ratingsCount || 0) - (a.ratingsCount || 0));
+    const ok = rankGoodreads(r.status === 'fulfilled' ? r.value : [], title, author);
+    if (ok.length) return ok;
   }
+  return [];
+}
+
+// The hits that are actually this book, best first.
+function rankGoodreads(hits, title, author) {
+  const firstAuthor = String(author || '').split(',')[0].trim();
+  const ok = hits.filter(x => titleMatches(title, x.title)
+    && (!firstAuthor || authorMatches(author, x.author)));
+  // An exact title beats a merely tolerated one, and most-rated wins among
+  // equals — the canonical edition rather than a box set or a reissue. The
+  // first half matters for a family the title check cannot separate at all,
+  // because coreTitle() drops what distinguishes them: "The Sandman: Act I",
+  // "Act II" and "Act III" all reduce to "sandman", so on ratings alone the
+  // most popular volume answered for its two siblings as well.
+  const exact = normText(title);
+  const isExact = r => (normText(r.title) === exact ? 1 : 0);
+  return ok.sort((a, b) => isExact(b) - isExact(a) || (b.ratingsCount || 0) - (a.ratingsCount || 0));
+}
+
+// The same question as goodreadsCover(), asked one query at a time. A cover is
+// wanted urgently and a few at once, so those stages race; the series lookup
+// runs for the whole shelf in the background, and three parallel queries per
+// book is how a few hundred books get an IP blocked. Nearly every book is
+// answered by the first query, and the second is only for a long subtitle.
+async function goodreadsInfo(title, author) {
+  const firstAuthor = String(author || '').split(',')[0].trim();
+  const stem = searchTitle(title);
+  const queries = [...new Set(firstAuthor ? [title + ' ' + firstAuthor, stem + ' ' + firstAuthor] : [title, stem])];
+  let lastError = null;
+  for (const q of queries) {
+    let hits;
+    try { hits = await fromGoodreads(q); } catch (e) { lastError = e; continue; }
+    const ok = rankGoodreads(hits, title, author);
+    if (ok.length) return ok;
+  }
+  // Every query failing is not "no such book": let the caller see it.
+  if (lastError) throw lastError;
   return [];
 }
 
@@ -448,14 +496,59 @@ async function searchProviders(q, env) {
 // Cache is best-effort on purpose: without a KV binding /meta still answers,
 // it just costs a provider round trip every time. The Google Books key is the
 // real reason this exists — it is what keeps repeat lookups inside quota.
-async function cached(env, key, ttl, produce) {
+async function cached(env, key, ttl, produce, worthKeeping) {
   const kv = env.BOOKSHELF_KV;
   if (!kv) return produce();
   const hit = await kv.get(key).catch(() => null);
   if (hit) { try { return JSON.parse(hit); } catch (e) { /* poisoned entry, refetch */ } }
   const value = await produce();
+  // Optional: a producer that cannot tell "nothing exists" from "every
+  // provider timed out" lets the caller refuse to pin the second for a week.
+  if (worthKeeping && !worthKeeping(value)) return value;
   await kv.put(key, JSON.stringify(value), { expirationTtl: ttl }).catch(() => {});
   return value;
+}
+
+// What a book's series and first-publication year are, for the Lists screen.
+// Same title and author checks as the cover lookup, and for the same reason:
+// the answer is attached to the user's book silently, so a wrong one is worse
+// than none. Series comes from Goodreads, year from Open Library; mergeResults()
+// joins the two when they are the same book.
+//
+// By title and author only, never by isbn. An isbn query is the better lookup
+// for a cover and the worse one here: Goodreads answers it with the edition's
+// own listing, which carries no "(Series, #N)" suffix, so the very books that
+// are in a series come back looking like standalones.
+// Google Books is left out: it knows neither series nor first-publication year,
+// so it would only spend quota.
+async function bookInfo(title, author) {
+  const firstAuthor = String(author || '').split(',')[0].trim();
+  const settled = await Promise.allSettled([
+    goodreadsInfo(title, author),
+    fromOpenLibrary((title + (firstAuthor ? ' ' + firstAuthor : '')).trim())
+  ]);
+  const results = mergeResults(settled.map(r => (r.status === 'fulfilled' ? r.value : [])));
+  // A provider that FAILED is not one that found nothing. With Goodreads down,
+  // a numbered series simply cannot appear, so what comes back is a year and
+  // "no series" that must not be mistaken for the truth or remembered for a week.
+  const partial = settled.some(r => r.status === 'rejected');
+  // A title alone does not identify a book, so it is checked, and the author is
+  // required whenever there is one.
+  const ok = results.filter(r => titleMatches(title, r.title)
+    && (!author || authorMatches(author, r.author)));
+  // Series only counts WITH a number: an unnumbered one cannot be put in order,
+  // and the numberless forms Goodreads uses are mostly subtitles.
+  const withSeries = ok.find(r => r.series && r.seriesNo != null);
+  const withYear = ok.find(r => r.year);
+  return {
+    // `empty`: nothing came back at all. With `partial` as well that is an
+    // outage or a block; without it, a book no provider has heard of.
+    empty: results.length === 0,
+    partial,
+    series: withSeries ? withSeries.series : '',
+    seriesNo: withSeries ? withSeries.seriesNo : null,
+    year: withYear ? withYear.year : null
+  };
 }
 
 // Cover images are the one part of this app a network can break on its own:
@@ -575,6 +668,18 @@ async function handleMeta(request, env, origin, path) {
     });
     if (!found || !found.coverUrl) return json({ error: 'no cover found' }, 404, origin);
     return json(found, 200, origin);
+  }
+
+  if (path === '/meta/info') {
+    const title = (params.get('title') || '').trim();
+    const author = (params.get('author') || '').trim();
+    if (!title) return json({ error: 'nothing to look up' }, 400, origin);
+    // Full title in the key, for the reason the cover route spells out.
+    const q = title + (author ? ' ' + author.split(',')[0] : '');
+    const key = 'meta:' + META_CACHE_VERSION + ':info:' + await sha256hex(normText(q));
+    const info = await cached(env, key, META_TTL,
+      () => bookInfo(title, author), v => !v.partial);
+    return json(info, 200, origin);
   }
 
   return json({ error: 'not found' }, 404, origin);

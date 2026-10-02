@@ -81,6 +81,22 @@ def upgrade_goodreads_cover(url):
     return re.sub(r'\._S[XY]\d+_\.', '._SY475_.', url)
 
 
+SERIES_SUFFIX_RE = re.compile(r'\(([^()]+?),\s*#\s*([^()]+?)\)\s*$')
+SERIES_NO_RE = re.compile(r'^\d+(\.\d+)?$')
+
+
+def parse_series_suffix(full_title):
+    """Goodreads titles a book in a series "Memory Man (Amos Decker, #1)" and
+    keeps the bare "Memory Man" elsewhere. The suffix is the only place a series
+    name and number reach the app: no other provider returns either. A range
+    ("#1-3") is a box set and a bracket with no "#" is a subtitle, so neither
+    counts. Mirrors parseSeriesSuffix() in the worker."""
+    m = SERIES_SUFFIX_RE.search(str(full_title or ''))
+    if not m or not SERIES_NO_RE.match(m.group(2).strip()):
+        return {'series': '', 'seriesNo': None}
+    return {'series': m.group(1).strip(), 'seriesNo': float(m.group(2))}
+
+
 def from_goodreads(q):
     url = 'https://www.goodreads.com/book/auto_complete?format=json&q=' + urllib.parse.quote(q)
     data = _get_json(url)
@@ -101,6 +117,8 @@ def from_goodreads(q):
             # where the book it summarises has tens of thousands.
             'ratingsCount': d.get('ratingsCount') or 0,
             'coverUrl': upgrade_goodreads_cover(d.get('imageUrl')),
+            # Read off the full title, not the bare one preferred above.
+            **parse_series_suffix(d.get('title')),
             'source': 'goodreads',
         })
     return out
@@ -135,7 +153,7 @@ def from_google_books(q):
 
 def from_open_library(q):
     url = ('https://openlibrary.org/search.json?limit=10'
-           '&fields=title,author_name,isbn,cover_i,number_of_pages_median&q=' + urllib.parse.quote(q))
+           '&fields=title,author_name,isbn,cover_i,number_of_pages_median,first_publish_year&q=' + urllib.parse.quote(q))
     data = _get_json(url)
     out = []
     for d in (data.get('docs') or []):
@@ -151,6 +169,9 @@ def from_open_library(q):
             'pages': d.get('number_of_pages_median') or None,
             'avgRating': None,
             'coverUrl': ('https://covers.openlibrary.org/b/id/%s-M.jpg' % d['cover_i']) if d.get('cover_i') else '',
+            # The WORK's first publication, not this edition's: a reissue must
+            # not sort after its own sequel.
+            'year': d.get('first_publish_year') or None,
             'source': 'openlibrary',
         })
     return out
@@ -246,10 +267,10 @@ def merge_results(lists):
                 by_key[key] = dict(r)
                 order.append(key)
                 continue
-            for field in ('isbn', 'isbn13', 'coverUrl', 'author'):
+            for field in ('isbn', 'isbn13', 'coverUrl', 'author', 'series'):
                 if not seen.get(field) and r.get(field):
                     seen[field] = r[field]
-            for field in ('pages', 'avgRating', 'ratingsCount'):
+            for field in ('pages', 'avgRating', 'ratingsCount', 'seriesNo', 'year'):
                 if seen.get(field) is None and r.get(field) is not None:
                     seen[field] = r[field]
     return [by_key[k] for k in order]
@@ -297,17 +318,48 @@ def goodreads_cover(title, author, isbn):
             hits = f.result(timeout=META_TIMEOUT + 2)
         except Exception:
             hits = []
-        ok = [r for r in hits if title_matches(title, r['title'])
-              and (not first_author or author_matches(author, r['author']))]
+        ok = rank_goodreads(hits, title, author)
         if ok:
-            # An exact title beats a merely tolerated one, most-rated wins
-            # among equals. The first half is what separates a family
-            # core_title() cannot: "The Sandman: Act I", "Act II" and "Act III"
-            # all reduce to "sandman", so on ratings alone the most popular
-            # volume answered for its siblings too.
-            exact = norm_text(title)
-            ok.sort(key=lambda r: (norm_text(r['title']) == exact, r.get('ratingsCount') or 0), reverse=True)
             return ok
+    return []
+
+
+def rank_goodreads(hits, title, author):
+    """The hits that are actually this book, best first."""
+    first_author = str(author or '').split(',')[0].strip()
+    ok = [r for r in hits if title_matches(title, r['title'])
+          and (not first_author or author_matches(author, r['author']))]
+    # An exact title beats a merely tolerated one, most-rated wins among
+    # equals. The first half is what separates a family core_title() cannot:
+    # "The Sandman: Act I", "Act II" and "Act III" all reduce to "sandman", so
+    # on ratings alone the most popular volume answered for its siblings too.
+    exact = norm_text(title)
+    ok.sort(key=lambda r: (norm_text(r['title']) == exact, r.get('ratingsCount') or 0), reverse=True)
+    return ok
+
+
+def goodreads_info(title, author):
+    """goodreads_cover()'s question asked one query at a time. A cover is wanted
+    urgently, so those stages race; the series lookup runs for the whole shelf in
+    the background, and three parallel queries per book is how a few hundred
+    books get an IP blocked. Mirrors goodreadsInfo() in the worker."""
+    first_author = str(author or '').split(',')[0].strip()
+    stem = search_title(title)
+    queries = list(dict.fromkeys([title + ' ' + first_author, stem + ' ' + first_author]
+                                 if first_author else [title, stem]))
+    last_error = None
+    for q in queries:
+        try:
+            hits = from_goodreads(q)
+        except Exception as e:
+            last_error = e
+            continue
+        ok = rank_goodreads(hits, title, author)
+        if ok:
+            return ok
+    # Every query failing is not "no such book": let the caller see it.
+    if last_error:
+        raise last_error
     return []
 
 
@@ -356,13 +408,63 @@ def search_providers(q):
     return merge_results(lists), providers
 
 
-def cached(key, ttl, produce):
+def cached(key, ttl, produce, worth_keeping=None):
     hit = META_CACHE.get(key)
     if hit and hit[0] > time.time():
         return hit[1]
     value = produce()
-    META_CACHE[key] = (time.time() + ttl, value)
+    # A producer that cannot tell "nothing exists" from "every provider timed
+    # out" lets the caller refuse to pin the second for a week.
+    if worth_keeping is None or worth_keeping(value):
+        META_CACHE[key] = (time.time() + ttl, value)
     return value
+
+
+def book_info(title, author):
+    """A book's series and first-publication year, for the Lists screen. Same
+    providers and the same title/author checks as the cover lookup: the answer
+    is attached to the user's book silently, so a wrong one is worse than none.
+    Series comes from Goodreads, year from Open Library. By title and author
+    only, never isbn: Goodreads answers an isbn with the edition's own listing,
+    which has no "(Series, #N)" suffix, so books in a series would come back as
+    standalones. Mirrors bookInfo()."""
+    first_author = str(author or '').split(',')[0].strip()
+    # Google Books is left out: it knows neither series nor first-publication
+    # year. Open Library goes to the pool; Goodreads runs inline for the reason
+    # cover_providers() gives.
+    job = POOL.submit(from_open_library, (title + ((' ' + first_author) if first_author else '')).strip())
+    lists = []
+    # A provider that FAILED is not one that found nothing. With Goodreads down a
+    # numbered series simply cannot appear, so the answer is incomplete and must
+    # not be remembered as the truth.
+    partial = False
+    try:
+        lists.append(goodreads_info(title, author))
+    except Exception as e:
+        sys.stderr.write('[worker-mock] info goodreads failed: %s\n' % e)
+        lists.append([])
+        partial = True
+    try:
+        lists.append(job.result(timeout=META_TIMEOUT + 2))
+    except Exception as e:
+        sys.stderr.write('[worker-mock] info openlibrary failed: %s\n' % e)
+        lists.append([])
+        partial = True
+    results = merge_results(lists)
+    ok = [r for r in results if title_matches(title, r['title'])
+          and (not author or author_matches(author, r['author']))]
+    # Series only counts WITH a number: an unnumbered one cannot be ordered.
+    with_series = next((r for r in ok if r.get('series') and r.get('seriesNo') is not None), None)
+    with_year = next((r for r in ok if r.get('year')), None)
+    return {
+        # `empty`: nothing came back at all. With `partial` as well that is an
+        # outage or a block; without it, a book no provider has heard of.
+        'empty': len(results) == 0,
+        'partial': partial,
+        'series': with_series['series'] if with_series else '',
+        'seriesNo': with_series['seriesNo'] if with_series else None,
+        'year': with_year['year'] if with_year else None,
+    }
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -467,6 +569,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._json({'error': 'no cover found'}, 404)
             sys.stderr.write('[worker-mock] /meta/cover %r -> %s\n' % (q, found['source']))
             return self._json(found)
+
+        if parsed.path == '/meta/info':
+            title, author = get('title'), get('author')
+            if not title:
+                return self._json({'error': 'nothing to look up'}, 400)
+            q = title + ((' ' + author.split(',')[0]) if author else '')
+            info = cached('info:' + norm_text(q), 7 * 24 * 3600,
+                          lambda: book_info(title, author), lambda v: not v['partial'])
+            sys.stderr.write('[worker-mock] /meta/info %r -> %s\n' % (q, info))
+            return self._json(info)
 
         return self._json({'error': 'not found'}, 404)
 

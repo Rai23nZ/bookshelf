@@ -306,6 +306,10 @@ input[type=range]{accent-color:var(--color-accent)}
 </sc-for>
 </div>
 
+<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:8px">Series</div>
+<input type="text" value="{{ sel.series }}" onInput="{{ onSeries }}" placeholder="Not in a series" style="width:100%;box-sizing:border-box;height:44px;border-radius:999px;border:1px solid var(--color-neutral-300);background:var(--color-neutral-100);padding:0 16px;font-family:var(--font-body);font-size:13.5px;color:var(--color-text);outline:0">
+<div style="font-size:11px;color:var(--color-neutral-600);margin:6px 0 16px">Found automatically. Change it only if it is wrong or missing, written as “Name #number”.</div>
+
 <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:8px">Note</div>
 <textarea value="{{ sel.note }}" onInput="{{ onNote }}" placeholder="What stayed with you?" style="width:100%;box-sizing:border-box;min-height:88px;border-radius:20px;border:1px solid var(--color-neutral-300);background:var(--color-neutral-100);padding:13px 15px;font-family:var(--font-body);font-size:13.5px;color:var(--color-text);resize:none;outline:0"></textarea>
 <div style="font-size:11px;color:var(--color-neutral-600);margin-top:6px">Exports to Goodreads as “My Review”.</div>
@@ -347,13 +351,18 @@ input[type=range]{accent-color:var(--color-accent)}
 <sc-if value="{{ isLists }}" hint-placeholder-val="{{ false }}">
 <div style="padding:20px 18px 0">
 <h1 style="font-family:var(--font-heading);font-size:28px;margin:0 0 4px">Lists</h1>
-<div style="font-size:13px;color:var(--color-neutral-600);margin-bottom:18px">Plans for later, pulled from your want-to-read shelf.</div>
+<div style="font-size:13px;color:var(--color-neutral-600);margin-bottom:18px">Every series with two or more books in your library, in release order, with how far you are through it.</div>
+<sc-if value="{{ listsPending }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:var(--color-neutral-600);margin:-8px 0 14px">{{ listsPendingLabel }}</div></sc-if>
+<sc-if value="{{ noLists }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;line-height:1.5;color:var(--color-neutral-600);padding:18px 0">No series yet. One shows up as soon as two of its books are in your library — the series is found automatically when a book is added.</div></sc-if>
 <sc-for list="{{ lists }}" as="l" hint-placeholder-count="4">
 <div onClick="{{ l.open }}" style="display:flex;align-items:center;gap:14px;border-radius:24px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);padding:13px 15px;margin-bottom:11px;cursor:pointer">
-<div style="width:46px;height:46px;border-radius:999px;flex:none;background:{{ l.ph }};display:grid;place-items:center;font-family:var(--font-heading);font-size:15px;color:#fff">{{ l.count }}</div>
+<div style="width:46px;height:46px;border-radius:999px;flex:none;background:{{ l.ph }};display:grid;place-items:center;font-family:var(--font-heading);font-size:13px;color:#fff">{{ l.progress }}</div>
 <div style="flex:1;min-width:0">
 <div style="font-family:var(--font-heading);font-size:16px;line-height:1.15">{{ l.title }}</div>
-<div style="font-size:12px;color:var(--color-neutral-600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ l.sample }}</div>
+<div style="font-size:12px;color:var(--color-neutral-600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ l.next }}</div>
+<div style="display:flex;gap:2px;margin-top:8px">
+<sc-for list="{{ l.segs }}" as="g" hint-placeholder-count="4"><div style="flex:1;min-width:0;height:5px;border-radius:3px;background:{{ g.bg }}"></div></sc-for>
+</div>
 </div>
 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-neutral-500);flex:none"><path d="M9 5l7 7-7 7"></path></svg>
 </div>
@@ -367,7 +376,10 @@ input[type=range]{accent-color:var(--color-accent)}
 <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
 </button>
 <h1 style="font-family:var(--font-heading);font-size:26px;line-height:1.1;margin:0 0 4px">{{ listTitle }}</h1>
-<div style="font-size:13px;color:var(--color-neutral-600);margin-bottom:18px">{{ listSubtitle }}</div>
+<div style="font-size:13px;color:var(--color-neutral-600);margin-bottom:10px">{{ listSubtitle }}</div>
+<div style="display:flex;gap:3px;margin-bottom:14px">
+<sc-for list="{{ listSegs }}" as="g" hint-placeholder-count="4"><div style="flex:1;min-width:0;height:6px;border-radius:3px;background:{{ g.bg }}"></div></sc-for>
+</div>
 <sc-for list="{{ listBooks }}" as="b" hint-placeholder-count="4">
 <div onClick="{{ b.open }}" style="display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid var(--color-neutral-200);cursor:pointer">
 <div style="width:48px;height:72px;flex:none;border-radius:8px;overflow:hidden;position:relative;background:{{ b.ph }}">
@@ -376,8 +388,9 @@ input[type=range]{accent-color:var(--color-accent)}
 <sc-if value="{{ b.rated }}" hint-placeholder-val="{{ true }}"><div style="position:absolute;right:4px;bottom:4px;width:24px;height:24px;border-radius:999px;background:var(--color-accent);border:2.5px solid var(--color-bg);box-shadow:0 2px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;transform:rotate(-9deg);z-index:1"><span style="font-family:var(--font-heading);font-size:9px;font-weight:800;color:#fff;line-height:1">{{ b.rating }}</span></div></sc-if>
 </div>
 <div style="flex:1;min-width:0">
-<div style="font-size:14px;font-weight:600;line-height:1.25;margin-bottom:3px">{{ b.short }}</div>
-<div style="font-size:12px;color:var(--color-neutral-600)">{{ b.authorShort }}</div>
+<div style="font-size:14px;font-weight:600;line-height:1.25;margin-bottom:3px"><span style="font-family:var(--font-heading);color:var(--color-accent-700);margin-right:6px">{{ b.orderLabel }}</span>{{ b.short }}</div>
+<div style="font-size:12px;color:var(--color-neutral-600);margin-bottom:6px">{{ b.byline }}</div>
+<span style="display:inline-block;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;background:{{ b.statusBg }};color:{{ b.statusInk }}">{{ b.statusLabel }}</span>
 </div>
 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" style="color:var(--color-neutral-500);flex:none"><path d="M9 5l7 7-7 7"></path></svg>
 </div>
@@ -748,6 +761,44 @@ const ROOT_SCREEN = 'library';
 // of every Goodreads cover on the shelf.
 const COVER_EPOCH = 4;
 
+// ── Series ────────────────────────────────────────────────────────────────
+// A book's series is stored the way the catalogue already has it: one string,
+// "Amos Decker #2". These split it, and fold the spellings providers disagree
+// about so that two books of one series land in one group.
+function seriesBase(raw) { return String(raw || '').replace(/#.*/, '').trim(); }
+
+function seriesNum(raw) {
+  const m = String(raw || '').match(/#\s*(\d+(?:\.\d+)?)/);
+  return m ? parseFloat(m[1]) : null;
+}
+
+// Identity of a series, not its spelling: "The Expanse", "Expanse" and
+// "Expanse Series" are one. Only a trailing "series" is dropped — "Chronicles"
+// or "Saga" can be part of a real name and shared by unrelated ones.
+function seriesKey(name) {
+  return String(name || '').toLowerCase().replace(/ё/g, 'е')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+    .replace(/^the /, '').replace(/ series$/, '');
+}
+
+function seriesLabel(name, no) {
+  return name ? name + (no != null ? ' #' + no : '') : '';
+}
+
+// A real Goodreads export has no Series column: the series rides in the title,
+// "Memory Man (Amos Decker, #1)". A range ("#1-3") is a box set and a bracket
+// without a number is a subtitle, so neither counts. Mirrors the Worker.
+function seriesFromTitle(title) {
+  const m = String(title || '').match(/\(([^()]+?),\s*#\s*([^()]+?)\)\s*$/);
+  return m && /^\d+(\.\d+)?$/.test(m[2].trim()) ? m[1].trim() + ' #' + parseFloat(m[2]) : '';
+}
+
+// What a title is compared as when asking Open Library directly for a year.
+function plainTitle(t) {
+  return String(t || '').replace(/[(\[:].*$/, '').toLowerCase().replace(/ё/g, 'е')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/^(the|a|an) /, '');
+}
+
 // ── Reading streak ────────────────────────────────────────────────────────
 // A day "counts" when reading progress was recorded on it, tracked as a list
 // of local calendar dates in state.readDays.
@@ -957,6 +1008,222 @@ class Component extends DCLogic {
   // not worth resuming across a reload when re-running it is idempotent and
   // skips everything already cached.
   backfill = { running: false, cancel: false, done: 0, failed: 0, total: 0 };
+
+  // id -> { t: title, y: year|0, s: series name, n: number|null, at, src }, src
+  // being 'worker', 'ol' (Open Library direct, year only) or 'partial'.
+  // What providers said about a book's series and first-publication year, kept
+  // in its own localStorage key like the covers: it is derived, re-fetchable
+  // and device-local, so it stays out of snapshot() and out of the cloud
+  // payload. What the USER typed (a series override) is a different matter and
+  // does go through snapshot().
+  meta = {};
+  // Ids already asked about this session, so a lookup that failed is retried
+  // next launch rather than in a loop.
+  infoRequested = new Set();
+  info = { running: false, done: 0, total: 0 };
+
+  get metaKey() { return 'bookshelf.meta.v1'; }
+
+  loadMeta() {
+    try {
+      const raw = localStorage.getItem(this.metaKey);
+      const cached = raw && JSON.parse(raw);
+      if (cached && typeof cached === 'object') Object.assign(this.meta, cached);
+    } catch (e) { /* corrupt cache — ignore */ }
+  }
+
+  saveMeta() {
+    clearTimeout(this._saveMeta);
+    this._saveMeta = setTimeout(() => {
+      try { localStorage.setItem(this.metaKey, JSON.stringify(this.meta)); } catch (e) { /* storage full or blocked */ }
+    }, 500);
+  }
+
+  // Ids are catalogue positions, so a rebuilt catalogue would shift them under
+  // a stored entry. The title is the cheap check that it is still this book.
+  metaFor(b) {
+    const e = this.meta[b.id];
+    return e && e.t === b.title ? e : null;
+  }
+
+  // The series a book is in and its place there, whichever source knows. What
+  // the book itself says wins: the catalogue, a search hit it was added from,
+  // or the user's own edit (`seriesSet`, which also lets them say "none"). Only
+  // a book with nothing of its own takes the looked-up series.
+  seriesInfo(b) {
+    const e = this.metaFor(b);
+    let name = '', no = null;
+    if (b.series || b.seriesSet) {
+      name = seriesBase(b.series);
+      no = seriesNum(b.series);
+      // A series with no "#" on the shelf ("World War Z") can still be
+      // numbered by the lookup, as long as it is the same series.
+      if (name && no == null && e && e.s && seriesKey(e.s) === seriesKey(name)) no = e.n;
+    } else if (e && e.s) {
+      name = e.s;
+      no = e.n;
+    }
+    return { name, no: no == null ? null : no, year: b.year || (e && e.y) || null };
+  }
+
+  seriesText(b) {
+    if (b.series) return b.series;
+    const si = this.seriesInfo(b);
+    return seriesLabel(si.name, si.no);
+  }
+
+  // Series with at least two books in the library, each in release order. The
+  // ordering is year first and then number, so a prequel novella published
+  // later sits after the book it precedes, as the reader meets them. A book
+  // whose year is unknown goes after the dated ones — a consistent key, unlike
+  // "compare years when both exist", which is not a total order and would make
+  // the list reshuffle as lookups arrive.
+  buildSeries(books) {
+    const groups = new Map();
+    books.forEach(b => {
+      const si = this.seriesInfo(b);
+      const key = seriesKey(si.name);
+      if (!key) return;
+      let g = groups.get(key);
+      if (!g) groups.set(key, g = { key, spellings: {}, items: [] });
+      g.spellings[si.name] = (g.spellings[si.name] || 0) + 1;
+      g.items.push({ b, no: si.no, year: si.year });
+    });
+    const out = [];
+    groups.forEach(g => {
+      if (g.items.length < 2) return;
+      // Providers spell one series several ways; the spelling most of the
+      // library already uses is the one worth showing.
+      g.name = Object.keys(g.spellings).sort((x, y) => g.spellings[y] - g.spellings[x])[0];
+      g.items.sort((x, y) => (x.year || 9999) - (y.year || 9999)
+        || (x.no == null ? 1e9 : x.no) - (y.no == null ? 1e9 : y.no)
+        || x.b.title.localeCompare(y.b.title));
+      g.total = g.items.length;
+      g.read = g.items.filter(it => it.b.shelf === 'read').length;
+      g.reading = g.items.filter(it => it.b.shelf === 'currently-reading').length;
+      // In progress first, then untouched, finished last: the top of the
+      // screen is where the reader still has something to do.
+      g.bucket = g.read === g.total ? 2 : (g.read || g.reading ? 0 : 1);
+      out.push(g);
+    });
+    return out.sort((x, y) => x.bucket - y.bucket || x.name.localeCompare(y.name));
+  }
+
+  // ── Series / release-year lookup ──────────────────────────────────────
+  // Whether a book is still worth asking the Worker about. Everything is, once;
+  // after that only an answer that was thin: one with a provider down (a day),
+  // an Open Library-only year when a sync code has since made the full lookup
+  // possible (a day), or no year at all (two weeks).
+  needsInfo(b) {
+    if (this.infoRequested.has(b.id)) return false;
+    if (b.series && b.year) return false; // came from a search hit that already had both
+    const e = this.metaFor(b);
+    if (!e) return true;
+    const age = Date.now() - e.at;
+    const hasCode = (this.state.syncCode || '').trim().length >= 16;
+    if ((e.src === 'partial' || (e.src === 'ol' && hasCode)) && age > 24 * 3600 * 1000) return true;
+    return !e.y && age > 14 * 24 * 3600 * 1000;
+  }
+
+  // Called from every update and cheap when there is nothing to do. Debounced
+  // so a burst of edits is one check, and so the first paint is not competing
+  // with several hundred requests.
+  scheduleInfoSweep() {
+    if (!this._ready || this.info.running || Date.now() < (this._sweepPausedUntil || 0)) return;
+    clearTimeout(this._sweepTimer);
+    this._sweepTimer = setTimeout(() => this.sweepInfo(), 2500);
+  }
+
+  sweepInfo() {
+    if (this.info.running || !this._ready) return;
+    // Books that already have a series come first: they are what the Lists
+    // screen needs dated, while a book with none is only being checked for one.
+    const todo = (this.state.books || []).filter(b => this.needsInfo(b))
+      .sort((a, b) => (this.seriesInfo(b).name ? 1 : 0) - (this.seriesInfo(a).name ? 1 : 0));
+    if (!todo.length) return;
+    Object.assign(this.info, { running: true, done: 0, total: todo.length });
+    this.forceUpdate();
+
+    let next = 0;
+    let fails = 0;
+    // Two at a time, and each lookup is itself several provider calls: the
+    // point is a shelf that fills in over a minute, not a burst Goodreads
+    // answers with a block.
+    const worker = async () => {
+      while (next < todo.length && fails < 4) {
+        const b = todo[next++];
+        this.infoRequested.add(b.id);
+        const answered = await this.resolveInfo(b).catch(() => false);
+        // Consecutive failures mean the provider is refusing us or the network
+        // is gone; carrying on only deepens a block and burns the whole queue.
+        fails = answered ? 0 : fails + 1;
+        this.info.done++;
+        clearTimeout(this._infoTick);
+        this._infoTick = setTimeout(() => this.forceUpdate(), 300);
+      }
+    };
+    Promise.all([worker(), worker()]).then(() => {
+      this.info.running = false;
+      if (fails >= 4) {
+        // The books never reached are untouched, so they are asked about
+        // again; the ones that failed stay requested until the next launch.
+        todo.slice(next).forEach(b => this.infoRequested.delete(b.id));
+        this._sweepRetries = (this._sweepRetries || 0) + 1;
+        const wait = this._sweepRetries <= 3 ? this._sweepRetries * 120000 : 1e12;
+        this._sweepPausedUntil = Date.now() + wait;
+        clearTimeout(this._sweepResume);
+        if (wait < 1e12) this._sweepResume = setTimeout(() => this.scheduleInfoSweep(), wait + 100);
+      }
+      this.saveMeta();
+      this.forceUpdate();
+    });
+  }
+
+  // Resolves to whether the providers actually ANSWERED about this book, which
+  // is not the same as having found something: "no series, no year" is an
+  // answer, a timeout is not. Only answers are stored.
+  resolveInfo(b) {
+    const ac = new AbortController();
+    // The Worker asks Goodreads up to twice, one query after the other, at 5s
+    // each in the worst case, while Open Library runs beside them.
+    const timer = setTimeout(() => ac.abort(), 14000);
+    const keep = (year, series, no, src) => {
+      this.meta[b.id] = { t: b.title, y: year || 0, s: series || '', n: no == null ? null : no, at: Date.now(), src };
+      this.saveMeta();
+      return true;
+    };
+    // No isbn: see bookInfo() in the Worker for why it makes this lookup worse.
+    return this.metaFetch('/meta/info', { title: b.title, author: b.author }, ac.signal)
+      .then(d => {
+        if (d && typeof d === 'object' && 'series' in d) {
+          // `partial`: a provider failed, so "no series" may only mean Goodreads
+          // was unreachable. What was found is kept, and the book is asked again
+          // after a day. Only when nothing came back as well is it a failure for
+          // the breaker; a book nobody has heard of (empty, not partial) is a
+          // real answer.
+          if (d.partial) { keep(d.year, d.series, d.seriesNo, 'partial'); return !d.empty; }
+          return keep(d.year, d.series, d.seriesNo, 'worker');
+        }
+        // No sync code, or the proxy is down: Open Library will still say when
+        // the book first came out, which is the half that orders a series.
+        return this.yearFromOpenLibrary(b, ac.signal).then(y => (y == null ? false : keep(y, '', null, 'ol')));
+      })
+      .then(ok => { clearTimeout(timer); return ok; }, () => { clearTimeout(timer); return false; });
+  }
+
+  // null on a network failure, 0 for "answered, but not this book".
+  yearFromOpenLibrary(b, signal) {
+    const url = 'https://openlibrary.org/search.json?limit=5&fields=title,author_name,first_publish_year&title='
+      + encodeURIComponent(String(b.title || '').replace(/[:(].*$/, '').trim())
+      + (b.author ? '&author=' + encodeURIComponent(String(b.author).split(',')[0]) : '');
+    const want = plainTitle(b.title);
+    const surname = (plainTitle(String(b.author || '').split(',')[0]).split(' ').pop() || '');
+    return fetch(url, { signal }).then(r => r.json()).then(j => {
+      const hit = ((j && j.docs) || []).find(d => d.first_publish_year && plainTitle(d.title) === want
+        && (!surname || (d.author_name || []).some(a => plainTitle(a).split(' ').includes(surname))));
+      return hit ? hit.first_publish_year : 0;
+    }).catch(() => null);
+  }
 
   lookupCover(b) {
     const key = b.id;
@@ -1225,7 +1492,14 @@ class Component extends DCLogic {
   // three can never drift apart.
   snapshot() {
     const { books, progress, goal, shelf, lastProgressId, readDays } = this.state;
-    const slim = (books || []).map(b => ({ id: b.id, myRating: b.myRating, shelf: b.shelf, dateRead: b.dateRead, note: b.note, _new: b._new ? b : undefined }));
+    // `series` rides along only when the user set it: a catalogue book's own
+    // series is already in the catalogue, and a looked-up one lives in the
+    // device-local meta cache. `_new` books are stored whole, series included.
+    const slim = (books || []).map(b => ({
+      id: b.id, myRating: b.myRating, shelf: b.shelf, dateRead: b.dateRead, note: b.note,
+      series: b.seriesSet ? b.series : undefined, seriesSet: b.seriesSet || undefined,
+      _new: b._new ? b : undefined
+    }));
     return { v: 1, slim, progress, goal, shelf, lastProgressId, readDays: readDays || [], updatedAt: Date.now() };
   }
 
@@ -1234,8 +1508,13 @@ class Component extends DCLogic {
     const byId = {};
     (d.slim || []).forEach(x => { byId[x.id] = x; });
     const extras = (d.slim || []).filter(x => x._new).map(x => x._new);
+    // A snapshot written before the series field existed has no `seriesSet`,
+    // and the book then keeps whatever the catalogue says.
     const merged = catalog.map(b => byId[b.id]
-      ? { ...b, myRating: byId[b.id].myRating, shelf: byId[b.id].shelf, dateRead: byId[b.id].dateRead, note: byId[b.id].note || '' }
+      ? {
+        ...b, myRating: byId[b.id].myRating, shelf: byId[b.id].shelf, dateRead: byId[b.id].dateRead, note: byId[b.id].note || '',
+        ...(byId[b.id].seriesSet ? { series: String(byId[b.id].series || ''), seriesSet: true } : {})
+      }
       : b);
     return {
       books: [...extras, ...merged], progress: d.progress || {},
@@ -1306,7 +1585,11 @@ class Component extends DCLogic {
       pages: ['Number of Pages', 'Pages'],
       dateRead: ['Date Read'], dateAdded: ['Date Added'],
       shelf: ['Exclusive Shelf', 'Shelves', 'Shelf', 'Status'],
-      series: ['Series', 'Bookshelves'], note: ['My Review', 'Private Notes', 'Review', 'Notes']
+      // Not 'Bookshelves': in a real Goodreads export that column holds shelf
+      // names, "to-read" among them, so it would file every unread book into
+      // one series called "to-read". The series is in the title there; see
+      // seriesFromTitle().
+      series: ['Series'], note: ['My Review', 'Private Notes', 'Review', 'Notes']
     };
   }
 
@@ -1442,7 +1725,7 @@ class Component extends DCLogic {
         const avgRaw = parseFloat(this.pickCol(row, cols.avgRating));
         const nb = {
           id: Date.now() + i, title, author,
-          series: this.pickCol(row, cols.series), isbn, isbn13,
+          series: this.pickCol(row, cols.series).trim() || seriesFromTitle(title), isbn, isbn13,
           asin: this.pickCol(row, cols.asin),
           myRating, avgRating: Number.isFinite(avgRaw) ? avgRaw : null,
           pages: Number.isFinite(pagesRaw) ? pagesRaw : null,
@@ -1684,6 +1967,10 @@ class Component extends DCLogic {
       if ((noIsbn || isbnKnownBad) && !this.covers[b.id]) this.lookupCover(b);
       this.maybeCacheCoverOffline(b);
     });
+    this.scheduleInfoSweep();
+    // A series that lost its second book, or a stale history entry, leaves the
+    // screen with nothing to show: step back instead of stranding the reader.
+    if (this._listMissing && this._ready) { this._listMissing = false; this.goBack(); }
     this.scheduleSave();
     this.resetScrollOnScreenChange();
   }
@@ -1740,6 +2027,7 @@ class Component extends DCLogic {
 
   componentDidMount() {
     this.loadCovers();
+    this.loadMeta();
     this.migrateCovers().catch(() => {}).then(() => this.loadOfflineCovers());
     const code = this.loadSyncCode();
     if (code) this.setState({ syncCode: code });
@@ -1780,6 +2068,7 @@ class Component extends DCLogic {
   }
 
   componentWillUnmount() {
+    clearTimeout(this._sweepTimer);
     this.flushSave();
     if (this._unsubSync) this._unsubSync();
     document.removeEventListener('visibilitychange', this._onHide);
@@ -1978,10 +2267,11 @@ class Component extends DCLogic {
     }
     const short = b.title.length > 42 ? b.title.slice(0, 40).trim() + '…' : b.title;
     const author = b.author || 'Unknown';
+    const seriesText = this.seriesText(b);
     return {
       id: b.id, title: b.title, short, author,
       authorShort: author.length > 24 ? author.split(',')[0] : author,
-      series: b.series, hasSeries: !!b.series,
+      series: seriesText, hasSeries: !!seriesText,
       ph: PH[h % PH.length], hasCover,
       coverUrl: url,
       rated: b.myRating > 0,
@@ -2136,7 +2426,7 @@ class Component extends DCLogic {
       // column this app doesn't use for anything, and used to be
       // repurposed to carry series here, which just meant a re-import
       // mislabeled series as a shelf tag. Series has its own column now.
-      '', b.series || '', b.note || ''
+      '', this.seriesText(b), b.note || ''
     ].map(q).join(','));
     const csv = '\ufeff' + [H.join(','), ...rows].join('\r\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -2301,23 +2591,52 @@ class Component extends DCLogic {
     const earnedCount = badges.filter(b => b.earned).length;
 
     const wanted = books.filter(b => b.shelf === 'to-read');
-    const seriesMap = {};
-    wanted.forEach(b => {
-      const key = b.series ? b.series.replace(/#.*/, '').trim() : 'Standalone';
-      (seriesMap[key] = seriesMap[key] || []).push(b);
+
+    // Lists are the series with two or more books in the library, on any
+    // shelf — a series is only worth a screen of its own once there is
+    // something to put in order, and a finished book is as much part of it as
+    // one still waiting. See buildSeries() for the order and the grouping.
+    const SEG = { 'read': 'var(--color-accent)', 'currently-reading': 'var(--color-accent-300)' };
+    const segBg = shelf => SEG[shelf] || 'var(--color-neutral-300)';
+    const seriesGroups = this.buildSeries(books);
+    const lists = seriesGroups.map(g => {
+      // What to pick up next: the book already in hand, else the first unread
+      // one in release order.
+      const cur = g.items.find(it => it.b.shelf === 'currently-reading');
+      const nextIt = cur || g.items.find(it => it.b.shelf !== 'read');
+      const nextShort = nextIt ? this.deco(nextIt.b).short + (nextIt.no != null ? ' · #' + nextIt.no : '') : '';
+      return {
+        title: g.name,
+        progress: g.read + '/' + g.total,
+        next: nextIt ? (cur ? 'Reading: ' : 'Next: ') + nextShort : 'Finished · all ' + g.total + ' read',
+        ph: this.phFor(g.name),
+        segs: g.items.map(it => ({ bg: segBg(it.b.shelf) })),
+        open: () => this.pushScreen({ screen: 'list', listKey: g.key })
+      };
     });
-    const lists = Object.keys(seriesMap)
-      .sort((a, b) => seriesMap[b].length - seriesMap[a].length)
-      .slice(0, 8)
-      .map((k, i) => ({
-        title: k === 'Standalone' ? 'One-offs & singles' : k,
-        count: seriesMap[k].length,
-        sample: seriesMap[k].slice(0, 3).map(b => b.title).join(' · '),
-        ph: PH[i % PH.length],
-        open: () => this.pushScreen({ screen: 'list', listKey: k })
-      }));
     const listKey = s.listKey;
-    const listBooks = (seriesMap[listKey] || []).map(b => this.deco(b));
+    const listGroup = seriesGroups.find(g => g.key === listKey) || null;
+    this._listMissing = s.screen === 'list' && !listGroup;
+    const listBooks = listGroup ? listGroup.items.map(it => {
+      const d = this.deco(it.b);
+      const pct = s.progress[it.b.id] ?? 0;
+      const st = it.b.shelf === 'read'
+        ? { label: 'Read' + (d.rated ? ' · ★ ' + d.rating : ' · not rated'), bg: 'var(--color-accent-100)', ink: 'var(--color-accent-800)' }
+        : it.b.shelf === 'currently-reading'
+          ? { label: 'Reading · ' + pct + '%', bg: 'var(--color-accent-2-100)', ink: 'var(--color-neutral-800)' }
+          : { label: 'Want to read', bg: 'var(--color-neutral-200)', ink: 'var(--color-neutral-700)' };
+      return {
+        ...d,
+        orderLabel: it.no != null ? '#' + it.no : '',
+        byline: d.authorShort + (it.year ? ' · ' + it.year : ''),
+        statusLabel: st.label, statusBg: st.bg, statusInk: st.ink
+      };
+    }) : [];
+    const listSegs = listGroup ? listGroup.items.map(it => ({ bg: segBg(it.b.shelf) })) : [];
+    const listTitle = listGroup ? listGroup.name : '';
+    const listSubtitle = listGroup
+      ? listGroup.read + ' of ' + listGroup.total + ' read' + (listGroup.reading ? ' · ' + listGroup.reading + ' reading' : '')
+      : '';
 
     // Each rail keeps its FULL book list (not just the ~14 that fit on
     // screen) so the header count is accurate and "See all" has something to
@@ -2394,7 +2713,11 @@ class Component extends DCLogic {
         ph: this.phFor(title), hasCover: !!coverUrl, coverUrl: coverSrc,
         add: () => {
           const nb = {
-            id: Date.now() + i, title, author, series: '',
+            id: Date.now() + i, title, author,
+            // What the search hit knew: Goodreads names the series, Open
+            // Library dates the book. Either may be missing, and the
+            // background lookup fills in whatever is.
+            series: seriesLabel(r.series, r.seriesNo), year: r.year || null,
             isbn: r.isbn || '', isbn13: r.isbn13 || '', myRating: 0,
             avgRating: r.avgRating == null ? null : r.avgRating,
             pages: r.pages || null, dateRead: '', dateAdded: new Date().toISOString().slice(0, 10),
@@ -2444,7 +2767,7 @@ class Component extends DCLogic {
     // near the front of the set, which is exactly why that worked.
     const seen = new Map();
     if (railGroup) railGroup.full.forEach(b => seen.set(b.id, b));
-    (seriesMap[listKey] || []).forEach(b => seen.set(b.id, b));
+    if (listGroup) listGroup.items.forEach(it => seen.set(it.b.id, it.b));
     if (sel) seen.set(sel.id, sel);
     [...pool.slice(0, s.limit), ...readingRaw, ...wanted.slice(0, 14)]
       .forEach(b => seen.set(b.id, b));
@@ -2460,9 +2783,12 @@ class Component extends DCLogic {
       flatEmpty: !!q && flat.length === 0,
       isLibrary: s.screen === 'library', isBook: s.screen === 'book', isReading: s.screen === 'reading',
       isLists: s.screen === 'lists', isStats: s.screen === 'stats', isExport: s.screen === 'export',
-      isList: s.screen === 'list', listBooks,
-      listTitle: listKey === 'Standalone' ? 'One-offs & singles' : (listKey || ''),
-      listSubtitle: listBooks.length + ' books waiting',
+      isList: s.screen === 'list', listBooks, listTitle, listSubtitle, listSegs,
+      hasLists: lists.length > 0, noLists: lists.length === 0,
+      // The release years behind the order arrive from a background lookup, so
+      // on a fresh install the lists settle over a minute rather than at once.
+      listsPending: this.info.running,
+      listsPendingLabel: 'Looking up release dates · ' + this.info.done + ' of ' + this.info.total,
       backToLists: () => this.goBack(),
       isRail: s.screen === 'rail', railBooks, railTitle,
       railSubtitle: railBooks.length + (railBooks.length === 1 ? ' book' : ' books'),
@@ -2559,6 +2885,14 @@ class Component extends DCLogic {
       onNote: e => {
         const v = e.target.value;
         this.setState({ books: books.map(x => x.id === s.selId ? { ...x, note: v } : x) });
+      },
+      // The manual fallback for when the lookup finds nothing or the wrong
+      // thing. `seriesSet` is what makes it stick over a looked-up value, and
+      // lets an empty field mean "not in a series" instead of "unset".
+      onSeries: e => {
+        const v = e.target.value;
+        this.setState({ books: books.map(x => x.id === s.selId ? { ...x, series: v, seriesSet: true } : x) });
+        this.scheduleSyncPush();
       },
       shelfPicker: SHELVES.map(sh => ({
         label: sh.label, ...this.pillStyle(sel && sel.shelf === sh.id),
